@@ -2,11 +2,27 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   try {
     const { question, leads } = req.body;
-    const leadSummary = (leads || []).slice(0, 80).map(l => ({
-      name: l.name, country: l.country, score: l.score, verdict: l.verdict,
-      products: l.products, pain: l.pain, employees: l.employees, revenue: l.revenue, sector: l.sector,
-    }));
-    const systemPrompt = `You are Newton, the AI intelligence engine for Newtec A/S (Danish fresh produce machinery). Analyze lead data and respond with ONLY valid JSON.\n\nData: ${JSON.stringify(leadSummary)}\n\nRespond with:\n{"answer":"1-2 sentence insight","charts":[{"type":"kpis","items":[{"label":"X","value":"N","color":"#9B7653"}]},{"type":"pie","title":"Title","data":[{"name":"X","value":10,"color":"#C0392B"}]},{"type":"bar","title":"Title","data":[{"name":"X","value":85,"color":"#9B7653"}]},{"type":"leads","title":"Title","leads":[{"name":"X","country":"Y","score":95,"verdict":"Hot","products":"Z","pain":"W"}]},{"type":"funnel","title":"Title","stages":[{"label":"X","value":10,"color":"#9B7653"}]},{"type":"comparison","title":"A vs B","labelA":"A","labelB":"B","items":[{"label":"X","a":1,"b":2}]}]}\nAlways include 2-5 charts. Colors: #C0392B red, #D4850A orange, #9B7653 brown, #2E6DA4 blue, #7B5EA7 purple, #4CAF50 green. Max 8 leads in cards.`;
+    const systemPrompt = `You are Newton, the AI intelligence engine for Newtec A/S (Danish fresh produce weighing, packaging, and optical sorting machinery). Analyze the lead data below and respond with ONLY valid JSON.
+
+LEAD DATA (from Airtable):
+${JSON.stringify(leads || [], null, 1).substring(0, 12000)}
+
+IMPORTANT: The field names may vary. Look for any fields containing company names, countries, scores, products, pain points, verdicts, emails, etc. Use whatever field names exist in the data.
+
+Respond with this JSON structure:
+{
+  "answer": "1-3 sentence insight about the data",
+  "charts": [
+    {"type":"kpis","items":[{"label":"Label","value":"N","color":"#9B7653"}]},
+    {"type":"pie","title":"Chart Title","data":[{"name":"Category","value":10,"color":"#C0392B"}]},
+    {"type":"bar","title":"Chart Title","data":[{"name":"Item","value":85,"color":"#9B7653"}]},
+    {"type":"leads","title":"Lead Cards","leads":[{"name":"Company","country":"Country","score":95,"verdict":"Hot","products":"Product List","pain":"Pain points"}]},
+    {"type":"funnel","title":"Pipeline","stages":[{"label":"Stage","value":10,"color":"#9B7653"}]},
+    {"type":"comparison","title":"A vs B","labelA":"A","labelB":"B","items":[{"label":"Metric","a":1,"b":2}]}
+  ]
+}
+Always include 3-5 relevant charts. Use colors: #C0392B (red/hot), #D4850A (orange/warm), #9B7653 (brown/brand), #2E6DA4 (blue/cold), #7B5EA7 (purple), #4CAF50 (green). Max 8 items in lead cards, 12 in bar charts.`;
+
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": process.env.CLAUDE_API_KEY, "anthropic-version": "2023-06-01" },
@@ -20,3 +36,13 @@ export default async function handler(req, res) {
     return res.status(200).json(parsed);
   } catch (err) { return res.status(500).json({ error: err.message }); }
 }
+```
+
+Poi apri `App.jsx` su GitHub e cerca questa riga:
+```
+const prepLeads=()=>recs.map(r=>({name:gf(r,"Company Name","Name","Company")||""
+```
+
+Sostituisci **tutta la riga** `const prepLeads=...filter(l=>l.name);` con:
+```
+const prepLeads=()=>recs.slice(0,80).map(r=>r.fields);
