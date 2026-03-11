@@ -1,7 +1,9 @@
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   try {
-    const { topic, language, author, leads } = req.body;
+    const { topic, language, author, profiles, channels, leads } = req.body;
+    const selProfiles = profiles || ["company","sales","rnd","ceo"];
+    const selChannels = channels || ["linkedin","instagram","youtube"];
 
     // 1. Fetch products from Airtable
     const PAT = process.env.VITE_AIRTABLE_PAT;
@@ -82,6 +84,13 @@ IMPORTANT: You have access to web search. USE IT to find real, current informati
 - Any recent news that would make the content more relevant and timely
 Always search when the topic references a specific event, company, trend, or recent happening. Use real data and real facts — never make up statistics or events.
 
+CRITICAL RULES — NEVER BREAK THESE:
+1. NEVER invent statistics by combining real numbers. You can say "8 tonnes saved monthly per mid-sized packhouse" (proven) and "20,000+ machines installed worldwide" (proven) but NEVER multiply them to create "160,000 tonnes monthly" — that calculation is not verified.
+2. NEVER present fictional stories as real events. Do NOT write "Yesterday I visited a customer in Spain" or "Last week, Maria told me..." — these are fabricated anecdotes. Instead use: "Imagine a packhouse manager seeing..." or "A typical customer experience might look like..." or "What if your operators could..." — hypothetical framing is fine, fake stories are not.
+3. ONLY use these verified Newtec numbers: €3,400/month savings (mid-sized packhouse, 30t/day), <0.2% giveaway (vs industry 1.5-3%), 8 tonnes saved monthly (per mid-sized installation), 6-12 month payback period, 30-60% labor reduction, 20,000+ machines installed, 40+ countries, founded 1976, ~87 employees. Any other numbers must come from web search results or the product catalog.
+4. When referencing competitor data (TOMRA revenue, employee count, etc.), ALWAYS verify via web search — do not rely on the context numbers alone, they may be outdated.
+5. For the Sales Director profile: write in a conversational, practical tone but use REAL scenarios and questions, not fake customer stories. Example: "How much product walks out of your packhouse unpaid every month? For a 30t/day operation, the answer is roughly 8 tonnes." — this is factual and compelling without being fake.
+
 ${authorCtx}
 ${leadCtx}
 
@@ -90,10 +99,14 @@ ${language && language !== "English" ? `Write natively in ${language} — not tr
 
 Respond ONLY with valid JSON. No markdown, no backticks, no preamble.
 
-JSON format:
-{"topic_summary":"brief","linkedin":{"company":{"primary":"150-300 word post","localized":"translated version or null"},"sales":{"primary":"story-based post","localized":"translated or null"},"rnd":{"primary":"technical post"},"ceo":{"primary":"thought leadership post"}},"instagram":{"caption":"with emojis and 15 hashtags","visual_direction":"specific visual concept for photo/video"},"youtube":{"short_script":"30sec script: HOOK(3s)/SHOW(15s)/PROOF(7s)/CTA(5s)","long_outline":"2-3min with timestamps"},"suggested_hashtags":["list"],"target_audience":"primary audience"}
+ONLY generate content for these profiles: ${selProfiles.join(", ")}
+ONLY generate content for these channels: ${selChannels.join(", ")}
+Do NOT generate content for profiles or channels not listed above. Leave them out of the JSON entirely.
 
-${author && author !== "all" ? "Since generating for a single profile, make the content LONGER and more detailed (400-500 words for LinkedIn). Include multiple post variations if possible." : ""}`;
+JSON format:
+{"topic_summary":"brief"${selChannels.includes("linkedin")?`,"linkedin":{${selProfiles.map(p=>`"${p}":{"primary":"post text","localized":"translated or null"}`).join(",")}}`:""}${selChannels.includes("instagram")?`,"instagram":{"caption":"with emojis and 15 hashtags","visual_direction":"specific visual concept"}`:""}${selChannels.includes("youtube")?`,"youtube":{"short_script":"30sec HOOK/SHOW/PROOF/CTA","long_outline":"2-3min with timestamps"}`:""},"suggested_hashtags":["list"],"target_audience":"primary audience"}
+
+${selProfiles.length <= 2 ? "Since generating for few profiles, make each post LONGER and more detailed (400-500 words for LinkedIn)." : ""}`;
 
     // 5. Call Claude with web search enabled
     const response = await fetch("https://api.anthropic.com/v1/messages", {
