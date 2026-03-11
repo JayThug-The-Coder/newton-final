@@ -1,7 +1,7 @@
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   try {
-    const { topic, language, author, profiles, channels, leads } = req.body;
+    const { topic, language, author, profiles, channels, leads, document: docData, documentName } = req.body;
     const selProfiles = profiles || ["company","sales","rnd","ceo"];
     const selChannels = channels || ["linkedin","instagram","youtube"];
 
@@ -121,7 +121,10 @@ ${selProfiles.length <= 2 ? "Since generating for few profiles, make each post L
         max_tokens: 4000,
         system: sys,
         tools: [{ type: "web_search_20250305", name: "web_search" }],
-        messages: [{ role: "user", content: `Generate content for: ${topic}` }]
+        messages: [{ role: "user", content: docData ? [
+          { type: "document", source: { type: "base64", media_type: docData.startsWith("/9j/") ? "image/jpeg" : docData.startsWith("iVBOR") ? "image/png" : "application/pdf", data: docData } },
+          { type: "text", text: `Document uploaded: "${documentName || "uploaded file"}". Use its content to generate highly personalized content about: ${topic}` }
+        ] : `Generate content for: ${topic}` }]
       }),
     });
 
