@@ -102,7 +102,7 @@ const cn={};recs.forEach(r=>{const c=gf(r,"Country")||"Unknown";cn[c]=(cn[c]||0)
 const tc=Object.entries(cn).sort((a,b)=>b[1]-a[1]).slice(0,5);
 const aT=useCtr(tot),aQ=useCtr(qal),aE=useCtr(ems),aS=useCtr(avg);
 
-const prepLeads=()=>recs.map(r=>({name:gf(r,"Company Name","Name","Company")||"",country:gf(r,"Country")||"",score:gS(r),verdict:gV(r),products:gf(r,"Recommended Products","Products")||"",pain:gf(r,"Pain Points","AI Pain Points")||"",employees:gf(r,"Employees")||"",revenue:gf(r,"Annual Revenue")||"",sector:gf(r,"Industry","Sector")||""})).filter(l=>l.name);
+const prepLeads=()=>recs.map(r=>({name:gf(r,"Company name","Company Name","Name","Company")||"",country:gf(r,"Country")||"",score:gS(r),verdict:gV(r),products:gf(r,"Recommended Products","Products")||"",pain:gf(r,"Pain Points","AI Pain Points")||"",employees:gf(r,"Employees")||"",revenue:gf(r,"Annual Revenue")||"",sector:gf(r,"Industry","Sector")||""})).filter(l=>l.name);
 
 /* AI Intelligence send */
 const sendChat=async()=>{if(!ci.trim()||cld)return;const q=ci.trim();sCI("");sCH(p=>[...p,{role:"user",text:q}]);sCld(true);
