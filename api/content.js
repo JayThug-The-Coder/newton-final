@@ -38,9 +38,9 @@ export default async function handler(req, res) {
 
     // 3. Author context
     const authorProfiles = {
-      all: "Generate content for ALL profiles: Company Page (corporate), Sales Director (Anders Nielsen — stories/ROI), R&D Director (technical depth), CEO (vision/leadership).",
+      all: "Generate content for ALL profiles: Company Page (corporate), Sales Director (stories/ROI), R&D Director (technical depth), CEO (vision/leadership).",
       ceo: "Write ONLY as CEO. Tone: visionary, strategic, industry-shaping. Talk about the future of fresh produce, automation trends, sustainability, company milestones. Never salesy — always thought leadership. First person.",
-      sales: "Write ONLY as Head of Sales (Anders Nielsen). Tone: practical, ROI-driven, customer stories. Talk about real packhouse problems: labor costs, giveaway reduction, throughput. Use specific numbers and payback periods. Conversational, like talking to a colleague at a trade fair.",
+      sales: "Write ONLY as Head of Sales. Tone: practical, ROI-driven, customer stories. Talk about real packhouse problems: labor costs, giveaway reduction, throughput. Use specific numbers and payback periods. Conversational, like talking to a colleague at a trade fair.",
       rnd: "Write ONLY as Head of R&D. Tone: technical, precise, passionate about engineering. Talk about how Newtec machines work: AI vision, sensor tech, mechanical design. Explain the WHY behind product decisions. Can include technical specs.",
       marketing: "Write ONLY as Marketing. Tone: brand-building, engaging, community-focused. Talk about events, partnerships, team culture, dealer spotlights. Visual-first thinking — always suggest image/video concepts.",
       dev: "Write ONLY as Head of Development. Tone: innovation-focused, problem-solving. Talk about software architecture, machine learning in sorting, new product features, development methodology.",
