@@ -118,7 +118,7 @@ ${selProfiles.length <= 2 ? "Since generating for few profiles, make each post L
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 4000,
+        max_tokens: 8000,
         system: sys,
         tools: [{ type: "web_search_20250305", name: "web_search" }],
         messages: [{ role: "user", content: `Generate content for: ${topic}` }]
