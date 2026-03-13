@@ -230,7 +230,7 @@ return<><style>{CSS}</style><div style={{minHeight:"100vh"}}>
 </div>
 
 <div style={{padding:"16px 20px",maxHeight:650,overflowY:"auto"}}>
-{cgl&&<div style={{textAlign:"center",padding:"36px 0"}}><div className="dots"><span/><span/><span/></div><p style={{fontSize:".82rem",color:"var(--tm)",marginTop:8}}>Generating content for 4 profiles + Instagram + YouTube in {clang}...</p></div>}
+{cgl&&<div style={{textAlign:"center",padding:"36px 0"}}><div className="dots"><span/><span/><span/></div><p style={{fontSize:".82rem",color:"var(--tm)",marginTop:8}}>Generating {selProf.length} profile{selProf.length!==1?"s":""} × {selChan.length} channel{selChan.length!==1?"s":""} in {clang}...</p></div>}
 
 {cg&&!cgl&&!cg.error&&<div>
 {cg.topic_summary&&<div style={{padding:"10px 14px",borderRadius:8,background:"var(--s)",border:"1px solid #F0EBE5",marginBottom:16,display:"flex",alignItems:"center",gap:8}}><Sparkles size={14} style={{color:"var(--b)"}}/><span style={{fontSize:".84rem",fontWeight:600}}>{cg.topic_summary}</span>{cg.target_audience&&<span style={{marginLeft:"auto",fontSize:".68rem",color:"var(--tm)"}}>Audience: {cg.target_audience}</span>}</div>}
@@ -238,7 +238,7 @@ return<><style>{CSS}</style><div style={{minHeight:"100vh"}}>
 {selChan.includes("linkedin")&&<><h3 style={{fontFamily:F,fontWeight:700,fontSize:".92rem",marginBottom:10,display:"flex",alignItems:"center",gap:6}}><Linkedin size={15} style={{color:CL.li}}/> LinkedIn</h3>
 {selProf.includes("company")&&<PostCard label="Company Page" desc="@newtec official" icon={Building2} color={CL.li} text={cg.linkedin?.company?.primary}/>}
 {selProf.includes("company")&&cg.linkedin?.company?.localized&&<PostCard label={`Company \u2014 ${clang}`} desc="Localized version" icon={Globe} color={CL.pur} text={cg.linkedin.company.localized}/>}
-{selProf.includes("sales")&&<PostCard label="Head of Sales" desc="Anders Nielsen" icon={Target} color={CL.warm} text={cg.linkedin?.sales?.primary}/>}
+{selProf.includes("sales")&&<PostCard label="Head of Sales" desc="ROI & Customer Stories" icon={Target} color={CL.warm} text={cg.linkedin?.sales?.primary}/>}
 {selProf.includes("sales")&&cg.linkedin?.sales?.localized&&<PostCard label={`Sales \u2014 ${clang}`} desc="Localized" icon={Globe} color={CL.pur} text={cg.linkedin.sales.localized}/>}
 {selProf.includes("rnd")&&<PostCard label="Head of R&D" desc="Technical innovation" icon={Microscope} color={CL.grn} text={cg.linkedin?.rnd?.primary}/>}
 {selProf.includes("ceo")&&<PostCard label="CEO" desc="Industry leadership" icon={Crown} color={CL.br} text={cg.linkedin?.ceo?.primary}/>}
