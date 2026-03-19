@@ -101,7 +101,7 @@ const wrm=recs.filter(r=>gV(r)==="Warm").length;
 const enr=recs.filter(r=>gf(r,"Growth Score","Enriched","Web Content")).length;
 const cn={};recs.forEach(r=>{const c=gf(r,"Country")||"Unknown";cn[c]=(cn[c]||0)+1});
 const tc=Object.entries(cn).sort((a,b)=>b[1]-a[1]).slice(0,5);
-const aT=useCtr(tot),aQ=useCtr(qal),aE=useCtr(ems),aS=useCtr(avg),aEn=useCtr(enr);
+const aT=useCtr(tot),aQ=useCtr(qal),aE=useCtr(ems),aS=useCtr(avg);
 
 const prepLeads=()=>recs.map(r=>({name:gf(r,"Company name","Company Name","Name","Company")||"",country:gf(r,"Country")||"",city:gf(r,"City / Region")||"",score:gS(r),verdict:gV(r),products:gf(r,"Recommended Products","Products")||"",pain:gf(r,"Pain Points","AI Pain Points")||"",handled:gf(r,"Products Handled")||"",employees:gf(r,"Employee count")||"",revenue:gf(r,"Annual Revenue")||"",sector:gf(r,"Industry","Sector")||"",subIndustry:gf(r,"Sub-Industry")||"",competitor:gf(r,"Competitor Equipment")||"",growth:gf(r,"Growth Score")||"",expansion:gf(r,"Expansion Plans")||"",fit:gf(r,"Newtec Fit Analysis")||"",age:gf(r,"Company Age")||"",lang:gf(r,"Contact Language")||"",timing:gf(r,"Timing Opportunity")||"",invest:gf(r,"Investment Readiness")||"",equip:gf(r,"Equipment Signals")||"",certs:gf(r,"Certifications")||"",source:gf(r,"Source")||"",priority:gf(r,"Priority Tier")||"",emailWorthy:gf(r,"Email Worthy")||"",processed:gf(r,"AI Processed")||"",desc:gf(r,"Company Description")||"",linkedin:gf(r,"LinkedIn URL")||"",phone:gf(r,"Phone")||""})).filter(l=>l.name);
 
@@ -157,7 +157,7 @@ return<><style>{CSS}</style><div style={{minHeight:"100vh"}}>
 
 {/* KPIs */}
 <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:14,marginBottom:28}}>
-{[{l:"Total Leads",v:aT,ic:Users,s:`${tc.length} countries`},{l:"Enriched",v:aEn,ic:Database,s:`${recs.filter(r=>gf(r,"Enrichment Source")==="Perplexity v1").length} Perplexity`},{l:"AI Qualified",v:aQ,ic:Target,s:`${hot} hot · ${wrm} warm`},{l:"Emails Generated",v:aE,ic:Mail,s:`${wor} email-worthy`},{l:"Avg Score",v:aS,ic:Brain,s:"out of 100"}].map((k,i)=>
+{[{l:"Total Leads",v:aT,ic:Users,s:`${tc.length} countries`},{l:"Enriched",v:enr,ic:Database,s:`${recs.filter(r=>gf(r,"Enrichment Source")==="Perplexity v1").length} Perplexity`},{l:"AI Qualified",v:aQ,ic:Target,s:`${hot} hot · ${wrm} warm`},{l:"Emails Generated",v:aE,ic:Mail,s:`${wor} email-worthy`},{l:"Avg Score",v:aS,ic:Brain,s:"out of 100"}].map((k,i)=>
 <div key={k.l} className={`cd an d${i+2}`} style={{padding:20,position:"relative",overflow:"hidden"}}>
 <div className="sr"/><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
 <span style={{fontSize:".7rem",fontWeight:600,color:"var(--tm)",textTransform:"uppercase",letterSpacing:".07em"}}>{k.l}</span>
