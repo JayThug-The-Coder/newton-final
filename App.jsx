@@ -156,8 +156,8 @@ return<><style>{CSS}</style><div style={{minHeight:"100vh"}}>
 </div>
 
 {/* KPIs */}
-<div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:14,marginBottom:28}}>
-{[{l:"Total Leads",v:aT,ic:Users,s:`${tc.length} countries`},{l:"Enriched",v:enr,ic:Database,s:`${recs.filter(r=>gf(r,"Enrichment Source")==="Perplexity v1").length} Perplexity`},{l:"AI Qualified",v:aQ,ic:Target,s:`${hot} hot · ${wrm} warm`},{l:"Emails Generated",v:aE,ic:Mail,s:`${wor} email-worthy`},{l:"Avg Score",v:aS,ic:Brain,s:"out of 100"}].map((k,i)=>
+<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:28}}>
+{[{l:"Total Leads",v:aT,ic:Users,s:`${tc.length} countries`},{l:"AI Qualified",v:aQ,ic:Target,s:`${hot} hot · ${wrm} warm`},{l:"Emails Generated",v:aE,ic:Mail,s:`${wor} email-worthy`},{l:"Avg Score",v:aS,ic:Brain,s:"out of 100"}].map((k,i)=>
 <div key={k.l} className={`cd an d${i+2}`} style={{padding:20,position:"relative",overflow:"hidden"}}>
 <div className="sr"/><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
 <span style={{fontSize:".7rem",fontWeight:600,color:"var(--tm)",textTransform:"uppercase",letterSpacing:".07em"}}>{k.l}</span>
