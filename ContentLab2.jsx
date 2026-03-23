@@ -9,7 +9,7 @@ import { useState, useCallback, useRef } from 'react';
 // CONFIG
 // ============================================================
 
-const API_URL = '/api/content';
+const API_URL = '/api/content2';
 
 const PILLARS = [
   { id: 'NewtecTech', label: '#NewtecTech', subtitle: 'Technology & Innovation', color: '#2563eb', icon: '⚙️' },
