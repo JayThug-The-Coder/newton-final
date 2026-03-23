@@ -337,12 +337,15 @@ async function handleSave(req, res) {
   const langName = LANG_TO_NAME[langCode] || 'English';
 
   // Map to EXISTING Airtable field names
-  // Extract a good title
+  // Extract a good title (skip 'auto-generated' placeholder)
+  const topicRaw = content.metadata?.topic;
+  const topicValid = (topicRaw && topicRaw !== 'auto-generated') ? topicRaw : null;
   const title = content.title 
-    || content.metadata?.topic 
-    || (content.post_text ? content.post_text.split('\n')[0].substring(0, 80) : '')
+    || topicValid
+    || (content.post_text ? content.post_text.split('\n')[0].replace(/[^\w\s.,!?-]/g, '').substring(0, 80).trim() : '')
     || (content.hook_text ? content.hook_text.substring(0, 80) : '')
-    || 'Content ' + new Date().toISOString().split('T')[0];
+    || (content.script && content.script[0] ? (content.script[0].chapter || content.script[0].action || '').substring(0, 80) : '')
+    || ('Content ' + (content.metadata?.pillar || '') + ' ' + (content.metadata?.platform || '') + ' ' + new Date().toISOString().split('T')[0]);
 
   // Get the main text content (different formats store it differently)
   const mainText = content.post_text 
