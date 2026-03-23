@@ -9,7 +9,7 @@ import { useState, useCallback, useRef } from 'react';
 // CONFIG
 // ============================================================
 
-const API_URL = '/api/content2';
+const API_URL = '/api/content';
 
 const PILLARS = [
   { id: 'NewtecTech', label: '#NewtecTech', subtitle: 'Technology & Innovation', color: '#2563eb', icon: '⚙️' },
@@ -136,6 +136,10 @@ export default function ContentLab2() {
   const [saveStatus, setSaveStatus] = useState(null);
   const [libraryFilter, setLibraryFilter] = useState({ status: '', pillar: '', platform: '' });
   const [carouselSlide, setCarouselSlide] = useState(0);
+  const [editingId, setEditingId] = useState(null);
+  const [editFields, setEditFields] = useState({});
+  const [expandedId, setExpandedId] = useState(null);
+  const [updateMsg, setUpdateMsg] = useState(null);
   const resultRef = useRef(null);
 
   // ============================================================
@@ -235,6 +239,47 @@ export default function ContentLab2() {
       setError(err.message);
     }
   }, [libraryFilter]);
+
+  const handleUpdateField = useCallback(async (recordId, fieldUpdates) => {
+    setUpdateMsg('saving');
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_status', record_id: recordId, updates: fieldUpdates }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setUpdateMsg('saved');
+      setTimeout(() => setUpdateMsg(null), 1500);
+      handleLoadLibrary();
+    } catch (err) {
+      setUpdateMsg('error');
+      setError(err.message);
+    }
+  }, [handleLoadLibrary]);
+
+  const startEdit = (record) => {
+    setEditingId(record.id);
+    setEditFields({
+      topic: record.fields?.Topic || '',
+      postText: record.fields?.['Post Text'] || '',
+      status: record.fields?.Status || 'Draft',
+      hashtags: record.fields?.Hashtags || '',
+      visual: record.fields?.['Visual Direction'] || '',
+    });
+  };
+
+  const saveEdit = async (recordId) => {
+    await handleUpdateField(recordId, {
+      'Topic': editFields.topic,
+      'Post Text': editFields.postText,
+      'Status': editFields.status,
+      'Hashtags': editFields.hashtags,
+      'Visual Direction': editFields.visual,
+    });
+    setEditingId(null);
+  };
 
   // ============================================================
   // STYLES (inline to keep component self-contained)
@@ -853,7 +898,7 @@ export default function ContentLab2() {
   const renderLibraryView = () => (
     <div>
       {/* Filters */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
         <select
           style={{ ...S.input, width: 'auto', padding: '8px 12px', fontSize: '13px' }}
           value={libraryFilter.status}
@@ -881,6 +926,14 @@ export default function ContentLab2() {
         <button style={S.actionBtn('primary')} onClick={handleLoadLibrary}>
           🔍 Load
         </button>
+        {updateMsg && (
+          <span style={{ fontSize: '12px', fontWeight: 600, color: updateMsg === 'saved' ? '#059669' : updateMsg === 'error' ? '#ef4444' : '#64748b', marginLeft: '8px' }}>
+            {updateMsg === 'saving' ? '⏳ Saving...' : updateMsg === 'saved' ? '✅ Saved!' : '❌ Error'}
+          </span>
+        )}
+        <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#94a3b8' }}>
+          {savedContents.length} items
+        </span>
       </div>
 
       {/* Content list */}
@@ -892,25 +945,169 @@ export default function ContentLab2() {
         </div>
       ) : (
         savedContents.map(record => {
-          const f = record.fields;
+          const f = record.fields || {};
           const pil = PILLARS.find(p => p.id === f.Pillar);
+          const isExpanded = expandedId === record.id;
+          const isEditing = editingId === record.id;
+          const statusColor = STATUS_COLORS[f.Status] || '#94a3b8';
+
           return (
-            <div key={record.id} style={S.libraryCard}>
-              <div style={S.libraryTitle}>{f.Title || 'Untitled'}</div>
-              <div style={S.libraryMeta}>
-                {pil && <span style={S.badge(pil.color)}>{pil.label}</span>}
-                {f.Platform && <span style={S.badge('#64748b')}>{f.Platform}</span>}
-                {f.Format && <span style={S.badge('#64748b')}>{f.Format}</span>}
-                {f.Market && <span style={S.badge('#64748b')}>{f.Market}</span>}
-                {f.Status && (
-                  <span style={S.badge(STATUS_COLORS[f.Status] || '#94a3b8')}>
-                    {f.Status}
-                  </span>
-                )}
+            <div key={record.id} style={{
+              ...S.libraryCard,
+              border: isExpanded ? '2px solid #cbd5e1' : '1px solid #e2e8f0',
+              background: isEditing ? '#fafbff' : '#fff',
+            }}>
+              {/* Header row — always visible */}
+              <div
+                onClick={() => { if (!isEditing) setExpandedId(isExpanded ? null : record.id); }}
+                style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}
+              >
+                <div style={{ flex: 1 }}>
+                  <div style={S.libraryTitle}>{f.Topic || 'Untitled'}</div>
+                  <div style={S.libraryMeta}>
+                    {pil && <span style={S.badge(pil.color)}>{pil.label}</span>}
+                    {f.Platform && <span style={S.badge('#64748b')}>{f.Platform}</span>}
+                    {f.Format && <span style={S.badge('#64748b')}>{f.Format}</span>}
+                    {f.Market && <span style={S.badge('#64748b')}>{f.Market}</span>}
+                    {f.Language && <span style={S.badge('#64748b')}>{f.Language}</span>}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                  {/* Quick status change */}
+                  <select
+                    value={f.Status || 'Draft'}
+                    onClick={e => e.stopPropagation()}
+                    onChange={e => {
+                      e.stopPropagation();
+                      handleUpdateField(record.id, { 'Status': e.target.value });
+                    }}
+                    style={{
+                      padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
+                      border: `1px solid ${statusColor}40`, background: `${statusColor}10`, color: statusColor,
+                      cursor: 'pointer', outline: 'none',
+                    }}
+                  >
+                    {Object.keys(STATUS_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <span style={{ fontSize: '14px', color: '#94a3b8', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>▼</span>
+                </div>
               </div>
-              {f['Content Body'] && (
+
+              {/* Preview text — always visible */}
+              {!isExpanded && f['Post Text'] && (
                 <div style={{ fontSize: '12px', color: '#64748b', marginTop: '8px', lineHeight: 1.5 }}>
-                  {f['Content Body'].substring(0, 200)}...
+                  {f['Post Text'].substring(0, 150)}...
+                </div>
+              )}
+
+              {/* Expanded view */}
+              {isExpanded && !isEditing && (
+                <div style={{ marginTop: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
+                  {/* Full text */}
+                  {f['Post Text'] && (
+                    <div style={{ fontSize: '13px', lineHeight: 1.7, whiteSpace: 'pre-wrap', marginBottom: '12px', padding: '12px', background: '#f8fafc', borderRadius: '8px', maxHeight: '300px', overflowY: 'auto' }}>
+                      {f['Post Text']}
+                    </div>
+                  )}
+                  {/* Visual direction */}
+                  {f['Visual Direction'] && (
+                    <div style={{ fontSize: '12px', color: '#64748b', padding: '8px 12px', background: '#fffbeb', border: '1px dashed #fbbf24', borderRadius: '6px', marginBottom: '10px' }}>
+                      🎨 {f['Visual Direction']}
+                    </div>
+                  )}
+                  {/* Hashtags */}
+                  {f.Hashtags && (
+                    <div style={{ fontSize: '12px', color: '#2563eb', marginBottom: '10px' }}>
+                      {f.Hashtags}
+                    </div>
+                  )}
+                  {/* CTA */}
+                  {f.CTA && (
+                    <div style={{ fontSize: '12px', color: '#059669', marginBottom: '10px' }}>
+                      📌 CTA: {f.CTA}
+                    </div>
+                  )}
+                  {/* Content Type badge */}
+                  {f['Content Type'] && (
+                    <div style={{ marginBottom: '10px' }}>
+                      <span style={S.badge(f['Content Type'] === 'AI' ? '#059669' : f['Content Type'] === 'HYBRID' ? '#d97706' : '#ea580c')}>
+                        {f['Content Type'] === 'AI' ? '✅ AI' : f['Content Type'] === 'HYBRID' ? '⚠️ HYBRID' : '📸 REAL'}
+                      </span>
+                    </div>
+                  )}
+                  {/* Action buttons */}
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <button style={S.actionBtn('primary')} onClick={() => startEdit(record)}>✏️ Edit</button>
+                    <button style={S.actionBtn('secondary')} onClick={() => {
+                      navigator.clipboard.writeText(f['Post Text'] || '');
+                    }}>📋 Copy</button>
+                    <button style={S.actionBtn('secondary')} onClick={() => {
+                      const blob = new Blob([JSON.stringify(f, null, 2)], { type: 'application/json' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `${(f.Topic || 'content').replace(/[^a-z0-9]/gi, '_')}.json`;
+                      a.click();
+                    }}>⬇️ Export</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Edit mode */}
+              {isEditing && (
+                <div style={{ marginTop: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '12px' }} onClick={e => e.stopPropagation()}>
+                  {/* Title edit */}
+                  <div style={{ marginBottom: '10px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Title / Topic</label>
+                    <input
+                      style={S.input}
+                      value={editFields.topic}
+                      onChange={e => setEditFields(prev => ({ ...prev, topic: e.target.value }))}
+                    />
+                  </div>
+                  {/* Status edit */}
+                  <div style={{ marginBottom: '10px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Status</label>
+                    <select
+                      style={{ ...S.input, padding: '8px 12px' }}
+                      value={editFields.status}
+                      onChange={e => setEditFields(prev => ({ ...prev, status: e.target.value }))}
+                    >
+                      {Object.keys(STATUS_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  {/* Post text edit */}
+                  <div style={{ marginBottom: '10px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Content Text</label>
+                    <textarea
+                      style={{ ...S.input, minHeight: '200px', resize: 'vertical', lineHeight: 1.6 }}
+                      value={editFields.postText}
+                      onChange={e => setEditFields(prev => ({ ...prev, postText: e.target.value }))}
+                    />
+                  </div>
+                  {/* Hashtags edit */}
+                  <div style={{ marginBottom: '10px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Hashtags</label>
+                    <input
+                      style={S.input}
+                      value={editFields.hashtags}
+                      onChange={e => setEditFields(prev => ({ ...prev, hashtags: e.target.value }))}
+                    />
+                  </div>
+                  {/* Visual direction edit */}
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Visual Direction</label>
+                    <textarea
+                      style={{ ...S.input, minHeight: '60px', resize: 'vertical' }}
+                      value={editFields.visual}
+                      onChange={e => setEditFields(prev => ({ ...prev, visual: e.target.value }))}
+                    />
+                  </div>
+                  {/* Save / Cancel */}
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button style={S.actionBtn('primary')} onClick={() => saveEdit(record.id)}>💾 Save Changes</button>
+                    <button style={S.actionBtn('secondary')} onClick={() => setEditingId(null)}>Cancel</button>
+                  </div>
                 </div>
               )}
             </div>
