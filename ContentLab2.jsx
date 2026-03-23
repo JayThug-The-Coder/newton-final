@@ -1,624 +1,1199 @@
-// api/content.js — Newton Content Lab 2.0 Backend
-// Deploy to Vercel as serverless function
+// ContentLab2.jsx — Newton Content Lab 2.0 Frontend Component
+// Import this in App.jsx: import ContentLab2 from './ContentLab2'
+// Use in the Content Lab tab: <ContentLab2 />
+// This is a SELF-CONTAINED component — all hooks are inside, none added to parent
 
-const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || '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';
-const AIRTABLE_PAT = process.env.AIRTABLE_PAT || 'patKeWxCtoDp5plgI.bb0dcb73de1951b1ffe39f7dc28dc9319fa68d76289c13e09aa46cb531919a2e';
-const AIRTABLE_BASE = 'appDQHnrGIRM7hr59';
-// REPLACE with your actual Content Calendar table ID
-const AIRTABLE_CONTENT_TABLE = process.env.AIRTABLE_CONTENT_TABLE || 'tblgR7ekntYJuV2oi';
-const AIRTABLE_PRODUCT_TABLE = 'tblNZoL7IU23Syd3o';
+import { useState, useCallback, useRef } from 'react';
 
 // ============================================================
-// SYSTEM PROMPTS — The 5 Pillar "Brains"
+// CONFIG
 // ============================================================
 
-const SYSTEM_PROMPTS = {
-  NewtecTech: `You are Newtec's Technology Content Specialist. You create content about Newtec's specific products and technologies for the fresh produce industry.
+const API_URL = '/api/content2';
 
-COMPANY KNOWLEDGE (use ONLY these verified facts — never invent additional specs):
+const PILLARS = [
+  { id: 'NewtecTech', label: '#NewtecTech', subtitle: 'Technology & Innovation', color: '#2563eb', icon: '⚙️' },
+  { id: 'NewtecPartners', label: '#NewtecPartners', subtitle: 'Customer Success & ROI', color: '#059669', icon: '🤝' },
+  { id: 'NewtecPeople', label: '#NewtecPeople', subtitle: 'People & Culture', color: '#ea580c', icon: '👥' },
+  { id: 'NewtecInsights', label: '#NewtecInsights', subtitle: 'Industry Intelligence', color: '#7c3aed', icon: '📊' },
+  { id: 'NewtecEducation', label: '#NewtecEducation', subtitle: 'Knowledge & How-To', color: '#0d9488', icon: '🎓' },
+];
 
-COMPANY: Danish manufacturer, founded 1976 by Inge and Gunnar Petersen in Odense. 25,000+ installations, 50+ countries, ~87 employees. Second generation: Anders Petersen (since 2006). Subsidiaries: Newtec Engineering A/S (optical sorting), Qtechnology (industrial cameras, founded 2007). In-house R&D lab with university partnerships and PhD students. All machinery engineered and manufactured in Denmark. MID approved (OIML R51 for checkweighers). Hygienic design: stainless steel, rigidised surfaces, tool-free disassembly; selected models with IP65 protection. WebServices available on most of the range (option or standard).
+const PLATFORMS = [
+  { id: 'LinkedIn', icon: '💼', formats: ['post', 'carousel', 'article', 'poll'] },
+  { id: 'YouTube', icon: '📹', formats: ['video_long', 'video_short'] },
+  { id: 'TikTok', icon: '🎵', formats: ['tiktok'] },
+];
 
-WEIGHING — XB-SERIES (Fresh Produce, Large Products):
-- 4014XB1: 14 weigh heads, 2-30kg range, ~75-80 portions/min
-- 4010W1: extra large products, giveaway less than 0.2%, up to 20 portions/min at 25kg. Products: potatoes, sweet potatoes, onions, beetroots, citrus
-- 4015XB2: medium speed, smaller products
+const FORMAT_LABELS = {
+  post: 'Post',
+  carousel: 'Carousel (5-7 slides)',
+  article: 'Article (800-1200 words)',
+  poll: 'Poll',
+  video_long: 'Video Script (3-5 min)',
+  video_short: 'Short / Reel (30-60s)',
+  tiktok: 'TikTok Hook + Script',
+};
 
-WEIGHING — PC-SERIES (Processed/Convenience Food — FASTEST in convenience range):
-- 2009PC: 9 heads, up to 60 portions/min at 0.25kg, giveaway less than 0.4%, range 0.25-1kg
-- 2014PC: 14 heads, up to 100 portions/min at 0.25kg, giveaway less than 0.4%, range 0.25-2kg
-- PCB-Series: deeper heads (H:235mm) for larger portions, up to 80/min at 0.5kg, range up to 7.5kg
-- PCF-Series: extra tall heads (H:375mm, vol 12.4L) for long frozen fish, up to 35/min at 1kg
-- Products: fish fillets, shellfish, broccoli, Brussels sprouts, bell peppers, cherries, nuts, IQF, snack, chips
+const MARKET_REGIONS = [
+  { region: 'Europe', markets: [
+    { id: 'International', flag: '🌍', label: 'International', defaultLang: 'EN' },
+    { id: 'UK & Ireland', flag: '🇬🇧', label: 'UK & Ireland', defaultLang: 'EN-UK' },
+    { id: 'DACH', flag: '🇩🇪', label: 'DACH', defaultLang: 'DE' },
+    { id: 'Nordics', flag: '🇩🇰', label: 'Nordics', defaultLang: 'EN' },
+    { id: 'France', flag: '🇫🇷', label: 'France', defaultLang: 'FR' },
+    { id: 'Iberia', flag: '🇪🇸', label: 'Spain & Portugal', defaultLang: 'ES' },
+    { id: 'Italy', flag: '🇮🇹', label: 'Italy', defaultLang: 'IT' },
+    { id: 'Benelux', flag: '🇳🇱', label: 'Benelux', defaultLang: 'NL' },
+    { id: 'Poland & CEE', flag: '🇵🇱', label: 'Poland & CEE', defaultLang: 'PL' },
+    { id: 'Balkans', flag: '🇬🇷', label: 'Balkans & Turkey', defaultLang: 'EN' },
+    { id: 'Baltics', flag: '🇱🇹', label: 'Baltics', defaultLang: 'EN' },
+  ]},
+  { region: 'Americas', markets: [
+    { id: 'USA', flag: '🇺🇸', label: 'United States', defaultLang: 'EN-US' },
+    { id: 'Canada', flag: '🇨🇦', label: 'Canada', defaultLang: 'EN' },
+    { id: 'Mexico & Central America', flag: '🇲🇽', label: 'Mexico & Central Am.', defaultLang: 'ES' },
+    { id: 'Brazil', flag: '🇧🇷', label: 'Brazil', defaultLang: 'PT-BR' },
+    { id: 'South America', flag: '🌎', label: 'South America', defaultLang: 'ES' },
+  ]},
+  { region: 'Asia Pacific', markets: [
+    { id: 'China', flag: '🇨🇳', label: 'China', defaultLang: 'ZH' },
+    { id: 'Japan & Korea', flag: '🇯🇵', label: 'Japan & Korea', defaultLang: 'EN' },
+    { id: 'Southeast Asia', flag: '🌏', label: 'Southeast Asia', defaultLang: 'EN' },
+    { id: 'India', flag: '🇮🇳', label: 'India', defaultLang: 'EN' },
+    { id: 'Australia & NZ', flag: '🇦🇺', label: 'Australia & NZ', defaultLang: 'EN' },
+  ]},
+  { region: 'Middle East & Africa', markets: [
+    { id: 'MENA', flag: '🇦🇪', label: 'Middle East & N. Africa', defaultLang: 'EN' },
+    { id: 'Sub-Saharan Africa', flag: '🌍', label: 'Sub-Saharan Africa', defaultLang: 'EN' },
+    { id: 'Turkey', flag: '🇹🇷', label: 'Turkey', defaultLang: 'TR' },
+    { id: 'Israel', flag: '🇮🇱', label: 'Israel', defaultLang: 'EN' },
+  ]},
+];
 
-WEIGHING — 2008PCM Mini Weigher: 8 channels, up to 70/min at 50g-500g, giveaway less than 0.4%, ~325kg
-WEIGHING — 2008PCM Memory Pans (NEWEST, Fruit Logistica Feb 2024): DOUBLES capacity vs standard — up to 140/min, giveaway less than 0.6%, same compact footprint, memory pans = additional layer for rapid distribution. Target: dried/snack, small frozen, fresh cut
+// Flat list for lookups
+const ALL_MARKETS = MARKET_REGIONS.flatMap(r => r.markets);
 
-PACKAGING:
-- NBM: punnets/trays, NBM-2S up to 60/min, NBM-3S up to 90/min. Clamshell: NBM-2QC 50/min, NBM-3QC 70/min
-- HSCF: convenience food containers, up to 100 packs/min, fully automatic, low changeover time
-- PEB41 Wicketer: up to 25 bags/min, potatoes/carrots/apples, gentle handling, 1 or 2 filling stations
-- PEB61 Wicketer: citrus-specific, up to 50 bags/min (2x25), up to 10kg
-- LaserFlowPack700: laser welding, ultra-thin PE/PP/BOPP film down to 10 µm, saves up to 70% on plastic, instant start-up, up to 100 punnets/min (250g)
+const ALL_LANGUAGES = [
+  { id: 'EN', flag: '🇬🇧', label: 'English' },
+  { id: 'EN-UK', flag: '🇬🇧', label: 'British English' },
+  { id: 'EN-US', flag: '🇺🇸', label: 'American English' },
+  { id: 'DE', flag: '🇩🇪', label: 'German' },
+  { id: 'ES', flag: '🇪🇸', label: 'Spanish' },
+  { id: 'IT', flag: '🇮🇹', label: 'Italian' },
+  { id: 'PT', flag: '🇵🇹', label: 'Portuguese' },
+  { id: 'PT-BR', flag: '🇧🇷', label: 'Brazilian Portuguese' },
+  { id: 'FR', flag: '🇫🇷', label: 'French' },
+  { id: 'DA', flag: '🇩🇰', label: 'Danish' },
+  { id: 'NL', flag: '🇳🇱', label: 'Dutch' },
+  { id: 'PL', flag: '🇵🇱', label: 'Polish' },
+  { id: 'SV', flag: '🇸🇪', label: 'Swedish' },
+  { id: 'NO', flag: '🇳🇴', label: 'Norwegian' },
+  { id: 'FI', flag: '🇫🇮', label: 'Finnish' },
+  { id: 'ZH', flag: '🇨🇳', label: 'Chinese' },
+  { id: 'JA', flag: '🇯🇵', label: 'Japanese' },
+  { id: 'KO', flag: '🇰🇷', label: 'Korean' },
+  { id: 'TR', flag: '🇹🇷', label: 'Turkish' },
+  { id: 'AR', flag: '🇸🇦', label: 'Arabic' },
+  { id: 'HE', flag: '🇮🇱', label: 'Hebrew' },
+  { id: 'TH', flag: '🇹🇭', label: 'Thai' },
+  { id: 'VI', flag: '🇻🇳', label: 'Vietnamese' },
+  { id: 'HI', flag: '🇮🇳', label: 'Hindi' },
+  { id: 'RO', flag: '🇷🇴', label: 'Romanian' },
+  { id: 'HU', flag: '🇭🇺', label: 'Hungarian' },
+  { id: 'CS', flag: '🇨🇿', label: 'Czech' },
+  { id: 'EL', flag: '🇬🇷', label: 'Greek' },
+  { id: 'HR', flag: '🇭🇷', label: 'Croatian' },
+  { id: 'SR', flag: '🇷🇸', label: 'Serbian' },
+  { id: 'BG', flag: '🇧🇬', label: 'Bulgarian' },
+];
 
-OPTICAL SORTING — CELOX:
-- Celox-P-UHD (potatoes): 2/4/12 lanes, single up to 10t/h, DUAL up to 30t/h, 4-12 lines, up to 16 outlets
-- Celox-C-UHD (carrots AND cucumbers): 4 lanes 50,000/h, 8 lanes 100,000/h, 12 lanes 150,000/h. ±1mm accuracy, 5% volume accuracy. New Super Infeed +25% capacity vs previous gen
-- ONLY machines on market sorting simultaneously by size + shape + quality
-- Up to 16 categories, patented vibrating roller technology + Spinaflex™
-- AI-powered with Hailo accelerator, 3 cameras, up to 45 photos per product
-- 1mm precision on size-sorting criteria
-- Web-based UI (browser, phone, tablet), remote control via LAN/VPN/WebServices
-- Industry integration: Modbus-TCP, OPC for PLCs
-- Fully developed in-house
-
-TECHNOLOGY: WebServices (remote servicing, data capture, traceability, diagnostics), MachineLink (single touchscreen control of multiple machines), HSI with Qtechnology (visible to shortwave infrared, detects internal defects and chemical composition)
-
-TONE: Authoritative but accessible. Senior engineer who loves explaining how things work.
-
-DATA INTEGRITY RULES (CRITICAL):
-- ONLY use numbers from this knowledge base. NEVER invent additional specs.
-- FORBIDDEN: any accuracy figure not listed here, any speed not listed, any capacity not listed, any test count, any specific engineering detail not listed.
-- ALLOWED numbers: all figures listed above (e.g., "less than 0.4%", "less than 0.2%", "less than 0.3%", "up to 100 portions/min", "up to 140 portions/min", "up to 130/min at 1kg", "up to 90/min", "16 categories", "1mm precision", "10 µm film", "70% plastic savings", "30 t/h", "150,000 carrots/h", "45 photos per product", "25,000+ installations", "50+ countries").
-- When you want to impress but lack a specific number, use qualitative language: "industry-leading precision", "optimised for maximum throughput".
-
-RULES:
-- Always include at least one verified data point.
-- Never mention competitors by name.
-- End with clear CTA.
-- Adapt angle based on market context.
-
-HASHTAGS: Always include #Newtec #NewtecTech and 2-3 relevant industry hashtags.`,
-
-  NewtecPartners: `You are Newtec's Customer Success Storyteller. You create content that showcases real results, ROI, and partnerships in the fresh produce industry.
-
-COMPANY KNOWLEDGE:
-- Newtec: 25,000+ installations, 50+ countries, 45+ years, family business since 1976
-- Dealer/partner network across 50+ countries
-- VERIFIED customer references ONLY:
-  * Stourgarden (UK): handles 1M+ packs, Newtec weighing and packing
-  * DanRoots (Denmark): weighing, sorting and packing of carrots in bags and punnets
-  * Parmentine (France): weighing, sorting and packing of potatoes in nets
-  * Strandlyst (Denmark): weighing, sorting and packing of potatoes in bags and punnets
-  * Australia (unnamed): 4 Celox optical sorting machines for carrots, leading Australian company
-- ROI indicators (verified ranges only):
-  * Giveaway: from typical 2-5% manual down to less than 0.4% (PC-Series) or less than 0.2% (4010W1)
-  * Speed: up to 140 portions/min (2008PCM Memory Pans), up to 100 portions/min (2014PC), up to 100 packs/min (HSCF/NBM)
-  * Labor reduction through automation (no specific % — varies per installation)
-  * Gentle product handling reduces damage/waste
-- Every installation is customised to customer needs
-- Newtec tests with customer's own packaging before delivery
-
-TONE: Concrete, results-oriented. Stories with numbers. Partnership stories, not sales pitches.
-
-DATA INTEGRITY RULES (CRITICAL):
-- Only use customer names and facts that are in COMPANY KNOWLEDGE above. Never invent customer names, locations, or results.
-- ALLOWED customer references: Stourgarden (UK, 1M+ packs), DanRoots (Denmark, carrots), Parmentine (France, potatoes), Australia (4 Celox machines, carrots).
-- For ROI claims, use ONLY these ranges: "giveaway from 2-5% down to less than 0.4%", "labor reduction through automation", "up to 100 portions/min".
-- NEVER invent specific savings amounts (e.g., "saved EUR 200,000"), specific payback periods (e.g., "payback in 8 months"), or specific customer quotes.
-- When you want to illustrate ROI, use hypothetical math clearly labeled: "For example, a packhouse processing 10,000 packs/day..." not "Customer X saved..."
-- If a fact is not in the knowledge base, do not include it.
-
-RULES:
-- Only reference publicly available customer data.
-- When specific data unavailable, use RANGES from general Newtec performance.
-- Frame as partnership. Never invent customer quotes.
-- Mark visual directions as [HYBRID] when real customer photos would improve it.
-
-HASHTAGS: Always include #Newtec #NewtecPartners and 2-3 relevant hashtags.`,
-
-  NewtecPeople: `You are Newtec's Culture and People Storyteller. You humanize a B2B technology brand.
-
-COMPANY KNOWLEDGE:
-- Founded 1976 by Inge and Gunnar Petersen in Odense, Denmark
-- Second generation: Anders Petersen took over in 2006
-- Anders invested in top-tier in-house laboratory with scientists and PhD students
-- Anders established Newtec Engineering A/S (optical sorting machines)
-- Qtechnology founded 2007 as strategic industrial camera subsidiary
-- ~87 employees, international cross-cultural work environment
-- Values: team spirit, innovation, open and informal culture, straightforward approach
-- HQ: Staermosegaardsvej 18, 5230 Odense M, Denmark
-- All machinery automated since 1979
-- Capacity evolution: 20 portions/min (1976) to 140 portions/min (2024)
-- University partnerships and PhD research collaborations
-- Present in 50+ countries, 25,000+ installations
-
-TONE: Warm, authentic, proud but humble. Personal over corporate.
-
-DATA INTEGRITY RULES (CRITICAL):
-- NEVER invent employee names, personal stories, or specific anecdotes.
-- ALLOWED facts: founded 1976, Inge and Gunnar Petersen, Anders Petersen (2006), Odense Denmark, ~87 employees, Qtechnology (2007), Newtec Engineering A/S, 50+ countries, 25,000+ installations, automated since 1979, 20 to 140 portions/min evolution, in-house lab with PhD students.
-- For employee-related content, use GENERIC roles only: "one of our engineers", "a colleague in R&D", "our assembly team".
-- NEVER invent company events, awards, or milestones not in the knowledge base.
-
-RULES:
-- Never invent specific employee names or personal stories. Use generic roles.
-- For employee spotlights, generate a BRIEF for Newtec to fill. Mark as [REAL].
-- For history/milestones, use only verified facts.
-
-HASHTAGS: Always include #Newtec #NewtecPeople #ThePeopleBehindThePrecision`,
-
-  NewtecInsights: `You are Newtec's Industry Analyst. Thought leadership about the fresh produce industry, trends, and market dynamics. NEVER directly promote Newtec products.
-
-INDUSTRY KNOWLEDGE:
-- EU Food Waste Directive targets
-- Labor shortages in agriculture/food processing globally
-- Sustainability: packaging reduction, plastic-free, carbon footprint
-- Retail trends: ready-to-eat, convenience, premium, organic
-- Technology trends: automation, AI/vision, Industry 4.0, IoT
-- Food safety: traceability, HACCP, BRC, FDA standards
-- Key publications: FreshPlaza, Eurofruit, Fruitnet, Hortidaily, Produce Business, Asiafruit
-
-TONE: Informed, analytical, forward-looking. Data-driven, provocative questions.
-
-DATA INTEGRITY RULES (CRITICAL):
-- NEVER mention Newtec products, models, or specs in this pillar.
-- When citing industry statistics, always use qualifiers: "industry reports suggest", "according to EU targets", "estimates indicate" — never present external data as hard facts.
-- NEVER invent specific percentages for industry trends (e.g., "automation grew 47% in 2025"). Use directional language: "growing rapidly", "increasing pressure", "significant shift".
-- You may reference well-known facts: EU Food Waste Directive exists, labor shortages are a real trend, sustainability pressure is increasing. But do NOT invent specific numbers for these.
-- If you want to use a statistic, frame it as illustrative: "some estimates suggest..." not "studies show that exactly X%..."
-
-RULES:
-- NEVER mention Newtec products, models, or specs.
-- May end with subtle "At Newtec, we are watching these trends closely."
-- End with discussion question.
-
-HASHTAGS: Always include #Newtec #NewtecInsights and 3-4 industry hashtags.`,
-
-  NewtecEducation: `You are Newtec's Packhouse Educator. Make complex food processing technology accessible.
-
-KNOWLEDGE BASE:
-- Weighing: multihead combination weighing, giveaway optimization
-- Packaging: punnets, trays, clamshells, bags, nets, flow wrapping, wicket bagging
-- Optical sorting: vision systems, size/shape/quality grading, defect detection
-- Terms: giveaway, throughput, OEE, changeover, washdown
-- Food safety: HACCP, BRC, traceability, FDA
-- Products handled: fruits, vegetables, potatoes, carrots, nuts, convenience food, frozen
-
-TONE: Patient teacher. Analogies, everyday language. Makes people smarter. Sometimes playful.
-
-DATA INTEGRITY RULES (CRITICAL):
-- When explaining how technology works, use GENERAL PRINCIPLES, not invented specs.
-- ALLOWED: "multihead weighers use 9 or 14 heads" (from knowledge base: 2009PC has 9, 2014PC has 14), "less than 0.4% giveaway", "up to 100 portions/min".
-- FORBIDDEN: inventing specific sensor specs, specific accuracy figures, specific engineering details not in the knowledge base.
-- For hypothetical calculations (e.g., giveaway savings), clearly label them: "For example, imagine a packhouse..." and use round numbers.
-- When explaining OEE, throughput, changeover etc., use general industry knowledge — these are standard concepts. But do NOT attribute specific benchmark numbers to Newtec unless they are in the knowledge base.
-
-RULES:
-- Explain for intelligent non-experts. Use analogies.
-- Always include "why this matters" connecting to business results.
-- Define jargon immediately. Evergreen content.
-
-HASHTAGS: Always include #Newtec #NewtecEducation and 2-3 educational hashtags.`
+const STATUS_COLORS = {
+  Draft: '#94a3b8',
+  Review: '#eab308',
+  Approved: '#2563eb',
+  Published: '#059669',
+  Rejected: '#ef4444',
 };
 
 // ============================================================
-// FORMAT TEMPLATES
+// MAIN COMPONENT
 // ============================================================
 
-const FORMAT_TEMPLATES = {
-  post: `Generate a LinkedIn post. Structure: Hook (first 2 lines), Body (3-5 paragraphs, -> for bullets), CTA, Hashtags.
-Output ONLY valid JSON: {"post_text":"...","visual_direction":"...","cta":"...","content_type":"AI or HYBRID","hashtags":"..."}`,
+export default function ContentLab2() {
+  // State
+  const [view, setView] = useState('create'); // 'create' | 'library' | 'calendar'
+  const [pillar, setPillar] = useState(null);
+  const [platform, setPlatform] = useState(null);
+  const [format, setFormat] = useState(null);
+  const [market, setMarket] = useState('International');
+  const [language, setLanguage] = useState('EN');
+  const [topic, setTopic] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+  const [savedContents, setSavedContents] = useState([]);
+  const [saveStatus, setSaveStatus] = useState(null);
+  const [libraryFilter, setLibraryFilter] = useState({ status: '', pillar: '', platform: '' });
+  const [carouselSlide, setCarouselSlide] = useState(0);
+  const [editingId, setEditingId] = useState(null);
+  const [editFields, setEditFields] = useState({});
+  const [expandedId, setExpandedId] = useState(null);
+  const [updateMsg, setUpdateMsg] = useState(null);
+  const [scheduleId, setScheduleId] = useState(null);
+  const [scheduleFields, setScheduleFields] = useState({ week: '', day: '', date: '' });
+  const resultRef = useRef(null);
 
-  carousel: `Generate a LinkedIn carousel with 5-7 slides. Slide 1: hook. Slides 2-5: one idea per slide (headline + subtext). Last: CTA.
-Output ONLY valid JSON: {"post_text":"caption","slides":[{"slide":1,"type":"hook","headline":"...","subtext":"..."}],"visual_direction":"...","cta":"...","content_type":"AI or HYBRID","hashtags":"..."}`,
+  // ============================================================
+  // HANDLERS
+  // ============================================================
 
-  article: `Generate a LinkedIn article of 800-1200 words. Title, intro, 3-4 sections with subheadings, conclusion with CTA.
-Output ONLY valid JSON: {"title":"...","post_text":"full article with ## for subheadings","visual_direction":"...","cta":"...","content_type":"AI","hashtags":"..."}`,
+  const handlePlatformChange = useCallback((p) => {
+    setPlatform(p);
+    setFormat(PLATFORMS.find(pl => pl.id === p)?.formats[0] || null);
+  }, []);
 
-  poll: `Generate a LinkedIn poll. Question (max 140 chars), 4 options (max 30 chars each), intro post text.
-Output ONLY valid JSON: {"post_text":"...","poll_question":"...","poll_options":["opt1","opt2","opt3","opt4"],"cta":"...","content_type":"AI","hashtags":"..."}`,
-
-  video_long: `Generate YouTube video script 3-5 min. Title, thumbnail text, chapters with timestamps, outro, description.
-Output ONLY valid JSON: {"title":"...","thumbnail_text":"...","script":[{"timestamp":"0:00","chapter":"...","text":"...","visual_notes":"..."}],"description":"...","tags":["..."],"content_type":"AI or HYBRID","hashtags":"..."}`,
-
-  video_short: `Generate YouTube Short 30-60s. Hook first 3 seconds. Fast-paced.
-Output ONLY valid JSON: {"title":"...","script":[{"timestamp":"0:00","action":"...","text_overlay":"...","voiceover":"..."}],"cta":"...","content_type":"AI","hashtags":"..."}`,
-
-  tiktok: `Generate TikTok 15-30s. Hook in 2 seconds. Informal, energetic.
-Output ONLY valid JSON: {"hook_text":"...","script":[{"timestamp":"0:00","action":"...","text_overlay":"..."}],"trending_audio_suggestion":"...","hashtags":"...","content_type":"AI"}`
-};
-
-// ============================================================
-// GLOBAL MARKETS — Full 360 coverage
-// ============================================================
-
-const MARKET_CONTEXT = {
-  // EUROPE
-  'International': 'Market: International (English). Global audience. Lead with innovation and precision. Use English.',
-  'UK & Ireland': 'Market: UK & Ireland. Post-Brexit: tighter margins, supply chain pressure, ROI-first messaging. Payback periods, case studies. British English.',
-  'DACH': 'Market: Germany, Austria, Switzerland. Precision engineering, Qualitaetsanspruch, certifications, technical depth. German language.',
-  'Nordics': 'Market: Denmark, Sweden, Norway, Finland. Innovation, automation-first, sustainability leadership. High tech maturity. English or Danish.',
-  'France': 'Market: France. Quality, tradition meets innovation. Strong agroindustrial sector. French language.',
-  'Iberia': 'Market: Spain & Portugal. Mediterranean produce (citrus, berries, stone fruit), export-oriented, family businesses. Partnership focus. Spanish or Portuguese.',
-  'Italy': 'Market: Italy. Premium produce, tradition, quality obsession. Strong cooperative sector. Italian language.',
-  'Benelux': 'Market: Netherlands, Belgium, Luxembourg. Advanced logistics, high automation, greenhouse/indoor growing. English or Dutch.',
-  'Poland & CEE': 'Market: Poland, Czech Republic, Hungary, Romania, Bulgaria. Rapid modernization, EU funding for automation, competitive labor costs but rising. Growth opportunity. Polish or English.',
-  'Balkans': 'Market: Serbia, Croatia, Greece, Turkey. Emerging automation market, export ambitions to EU. English.',
-  'Baltics': 'Market: Estonia, Latvia, Lithuania. Small but advanced, EU-oriented, digital-first. English.',
-
-  // AMERICAS
-  'USA': 'Market: United States. Scale, efficiency, labor cost pressure (H-2A visa challenges), FDA compliance, large packhouses. American English.',
-  'Canada': 'Market: Canada. Similar to US but smaller scale, bilingual (EN/FR), CFIA regulations. English.',
-  'Mexico & Central America': 'Market: Mexico, Guatemala, Costa Rica. Major fresh produce exporters, US market supply chain, growing automation. Spanish.',
-  'Brazil': 'Market: Brazil. Largest Latin American producer, citrus/tropical, Mercosul regulations. Portuguese.',
-  'South America': 'Market: Chile, Peru, Argentina, Colombia, Ecuador. Export-focused (berries, avocado, grapes), counter-seasonal to Europe. Spanish.',
-
-  // ASIA PACIFIC
-  'China': 'Market: China. Newtec JV presence. WeChat B2B, partnership-led, local success stories, scale. Simplified Chinese.',
-  'Japan & Korea': 'Market: Japan & South Korea. Extreme quality standards, premium packaging, precision obsession. Technology leadership. English.',
-  'Southeast Asia': 'Market: Thailand, Vietnam, Philippines, Indonesia, Malaysia. Tropical produce, growing automation, price-sensitive but upgrading. English.',
-  'India': 'Market: India. Massive scale, cold chain development, government push for food processing. Value proposition critical. English.',
-  'Australia & NZ': 'Market: Australia & New Zealand. Mature market, labor shortage acute, high standards, existing Newtec installations. English.',
-
-  // MIDDLE EAST & AFRICA
-  'MENA': 'Market: Middle East & North Africa (UAE, Saudi, Egypt, Morocco). Food security focus, import-dependent, mega-projects, premium positioning. English or Arabic context.',
-  'Sub-Saharan Africa': 'Market: Sub-Saharan Africa (Kenya, South Africa, Ethiopia, Nigeria). Emerging market, export horticulture (flowers, avocado, green beans), development-oriented. English.',
-  'Turkey': 'Market: Turkey. Bridge between Europe and Asia, strong agriculture, growing processing sector. English or Turkish context.',
-  'Israel': 'Market: Israel. Agritech innovation hub, advanced agriculture, water-efficient, high-tech adoption. English.',
-};
-
-const LANGUAGE_MAP = {
-  'EN': 'Write in English.',
-  'EN-UK': 'Write in British English.',
-  'EN-US': 'Write in American English.',
-  'DE': 'Write in German.',
-  'ES': 'Write in Spanish.',
-  'IT': 'Write in Italian.',
-  'PT': 'Write in European Portuguese.',
-  'PT-BR': 'Write in Brazilian Portuguese.',
-  'FR': 'Write in French.',
-  'DA': 'Write in Danish.',
-  'PL': 'Write in Polish.',
-  'NL': 'Write in Dutch.',
-  'SV': 'Write in Swedish.',
-  'NO': 'Write in Norwegian.',
-  'FI': 'Write in Finnish.',
-  'ZH': 'Write in Simplified Chinese.',
-  'JA': 'Write in Japanese.',
-  'KO': 'Write in Korean.',
-  'TR': 'Write in Turkish.',
-  'AR': 'Write in Arabic.',
-  'HE': 'Write in Hebrew.',
-  'TH': 'Write in Thai.',
-  'VI': 'Write in Vietnamese.',
-  'RO': 'Write in Romanian.',
-  'HU': 'Write in Hungarian.',
-  'CS': 'Write in Czech.',
-  'EL': 'Write in Greek.',
-  'HR': 'Write in Croatian.',
-  'SR': 'Write in Serbian.',
-  'BG': 'Write in Bulgarian.',
-  'HI': 'Write in Hindi.',
-};
-
-// ============================================================
-// MAIN HANDLER
-// ============================================================
-
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
-  const { action } = req.body;
-
-  try {
-    switch (action) {
-      case 'generate': return await handleGenerate(req, res);
-      case 'save': return await handleSave(req, res);
-      case 'list': return await handleList(req, res);
-      case 'update_status': return await handleUpdateStatus(req, res);
-      default: return res.status(400).json({ error: 'Unknown action' });
+  const handleMarketChange = useCallback((m) => {
+    setMarket(m);
+    const mkt = ALL_MARKETS.find(mk => mk.id === m);
+    if (mkt?.defaultLang) {
+      setLanguage(mkt.defaultLang);
     }
-  } catch (error) {
-    console.error('Content API error:', error);
-    return res.status(500).json({ error: error.message });
-  }
-}
+  }, []);
 
-// ============================================================
-// PRODUCT KNOWLEDGE LOOKUP — Fetches specs from Airtable
-// ============================================================
-
-async function fetchProductKnowledge(topic, pillar) {
-  try {
-    // Build search keywords from topic
-    const searchTerms = (topic || '').toLowerCase();
-    
-    // Fetch all products (they're only ~30 records, small enough)
-    const url = `https://api.airtable.com/v0/${AIRTABLE_BASE}/${AIRTABLE_PRODUCT_TABLE}?pageSize=100`;
-    const res = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${AIRTABLE_PAT}` }
-    });
-    
-    if (!res.ok) return '';
-    
-    const data = await res.json();
-    const records = data.records || [];
-    
-    // Filter relevant products based on topic keywords
-    const relevant = records.filter(r => {
-      const f = r.fields || {};
-      const model = (f.Model || '').toLowerCase();
-      const name = (f['Full Product Name'] || '').toLowerCase();
-      const desc = (f.Description || '').toLowerCase();
-      const products = (f['Target Products'] || '').toLowerCase();
-      const category = (f.Category || '').toLowerCase();
-      const combined = `${model} ${name} ${desc} ${products} ${category}`;
-      
-      // If no topic or very generic, return top products per pillar
-      if (!searchTerms || searchTerms === 'auto-generated') {
-        // Return flagship products
-        return ['2014PC', 'Celox-P', 'Celox-C', '2008PCM', 'FlowPack', 'NBM', '4015B2', 'HSCF', 'WebServices', 'Checkpoint'].some(
-          flag => model.includes(flag.toLowerCase()) || name.toLowerCase().includes(flag.toLowerCase())
-        );
-      }
-      
-      // Check if any search term matches
-      const words = searchTerms.split(/[\s,;.]+/).filter(w => w.length > 2);
-      return words.some(w => combined.includes(w));
-    });
-    
-    // If no matches, pick top 5 flagship products
-    const selected = relevant.length > 0 ? relevant.slice(0, 8) : records.filter(r => {
-      const m = (r.fields?.Model || '').toLowerCase();
-      return ['2014PC', 'Celox-P', '4015B2', 'NBM', 'FlowPack'].some(f => m.includes(f.toLowerCase()));
-    }).slice(0, 5);
-    
-    if (selected.length === 0) return '';
-    
-    // Format as knowledge injection
-    let kb = '\n\nPRODUCT SPECIFICATIONS FROM DATABASE (use these verified specs):';
-    for (const r of selected) {
-      const f = r.fields || {};
-      kb += `\n\n### ${f.Model || 'Unknown'}`;
-      if (f['Full Product Name']) kb += ` — ${f['Full Product Name']}`;
-      if (f.Description) kb += `\nDescription: ${f.Description.substring(0, 300)}`;
-      if (f.Capacity) kb += `\nCapacity: ${f.Capacity}`;
-      if (f['Portion/Weight Range']) kb += `\nRange: ${f['Portion/Weight Range']}`;
-      if (f['Target Products']) kb += `\nTarget Products: ${f['Target Products']}`;
-      if (f['Key Features']) kb += `\nKey Features: ${f['Key Features'].substring(0, 400)}`;
-      if (f['PDF Link']) kb += `\nBrochure: ${f['PDF Link']}`;
+  const handleGenerate = useCallback(async () => {
+    if (!pillar || !platform || !format) {
+      setError('Please select Pillar, Platform, and Format before generating.');
+      return;
     }
-    
-    return kb;
-  } catch (err) {
-    console.error('Product knowledge fetch error:', err.message);
-    return ''; // Fail silently — prompts still have built-in knowledge
-  }
-}
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    setCarouselSlide(0);
+    setSaveStatus(null);
 
-// ============================================================
-// GENERATE
-// ============================================================
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'generate',
+          pillar, platform, format, market, language,
+          topic: topic || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Generation failed');
+      setResult(data);
+      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [pillar, platform, format, market, language, topic]);
 
-async function handleGenerate(req, res) {
-  const { pillar, platform, format, market, language, topic } = req.body;
+  const handleSave = useCallback(async () => {
+    if (!result) return;
+    setSaveStatus('saving');
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save', content: result }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Save failed');
+      setSaveStatus('saved');
+    } catch (err) {
+      setSaveStatus('error');
+      setError(err.message);
+    }
+  }, [result]);
 
-  if (!pillar || !SYSTEM_PROMPTS[pillar]) {
-    return res.status(400).json({ error: `Invalid pillar. Use: ${Object.keys(SYSTEM_PROMPTS).join(', ')}` });
-  }
-  if (!format || !FORMAT_TEMPLATES[format]) {
-    return res.status(400).json({ error: `Invalid format. Use: ${Object.keys(FORMAT_TEMPLATES).join(', ')}` });
-  }
+  const handleCopy = useCallback(() => {
+    const text = result?.post_text || result?.article_body || result?.raw_text || '';
+    navigator.clipboard.writeText(text);
+  }, [result]);
 
-  const systemPrompt = SYSTEM_PROMPTS[pillar];
-  const formatTemplate = FORMAT_TEMPLATES[format];
-  const marketContext = MARKET_CONTEXT[market] || MARKET_CONTEXT['International'];
-  const languageInstruction = LANGUAGE_MAP[language] || LANGUAGE_MAP['EN'];
-  
-  // Fetch relevant product specs from Airtable Product Knowledge table
-  const productKnowledge = await fetchProductKnowledge(topic, pillar);
+  const handleDownload = useCallback(() => {
+    if (!result) return;
+    const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `newton-content-${result.metadata?.pillar || 'export'}-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [result]);
 
-  const userMessage = `${marketContext}
-${languageInstruction}
-Platform: ${platform}
-Format: ${format}
-${topic ? `Topic/Focus: ${topic}` : 'Choose an engaging topic based on your knowledge base.'}
-${productKnowledge}
+  const handleLoadLibrary = useCallback(async () => {
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'list', ...libraryFilter }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setSavedContents(data.records || []);
+    } catch (err) {
+      setError(err.message);
+    }
+  }, [libraryFilter]);
 
-${formatTemplate}
+  const handleUpdateField = useCallback(async (recordId, fieldUpdates) => {
+    setUpdateMsg('saving');
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_status', record_id: recordId, updates: fieldUpdates }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setUpdateMsg('saved');
+      setTimeout(() => setUpdateMsg(null), 1500);
+      handleLoadLibrary();
+    } catch (err) {
+      setUpdateMsg('error');
+      setError(err.message);
+    }
+  }, [handleLoadLibrary]);
 
-IMPORTANT: Return ONLY the JSON object. No markdown, no backticks, no explanation. Just raw JSON.
-${productKnowledge ? 'USE the PRODUCT SPECIFICATIONS above for accurate data. These come directly from Newtec official datasheets.' : ''}`;
+  const startEdit = (record) => {
+    setEditingId(record.id);
+    setEditFields({
+      topic: record.fields?.Topic || '',
+      postText: record.fields?.['Post Text'] || '',
+      status: record.fields?.Status || 'Draft',
+      hashtags: record.fields?.Hashtags || '',
+      visual: record.fields?.['Visual Direction'] || '',
+    });
+  };
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': CLAUDE_API_KEY,
-      'anthropic-version': '2023-06-01'
+  const saveEdit = async (recordId) => {
+    await handleUpdateField(recordId, {
+      'Topic': editFields.topic,
+      'Post Text': editFields.postText,
+      'Status': editFields.status,
+      'Hashtags': editFields.hashtags,
+      'Visual Direction': editFields.visual,
+    });
+    setEditingId(null);
+  };
+
+  const scheduleToCalendar = async (recordId) => {
+    const updates = {};
+    if (scheduleFields.week) updates['Week'] = parseInt(scheduleFields.week);
+    if (scheduleFields.day) updates['Day'] = scheduleFields.day;
+    if (scheduleFields.date) updates['Date'] = scheduleFields.date;
+    updates['Status'] = 'Approved';
+    await handleUpdateField(recordId, updates);
+    setScheduleId(null);
+    setScheduleFields({ week: '', day: '', date: '' });
+  };
+
+  // ============================================================
+  // STYLES (inline to keep component self-contained)
+  // ============================================================
+
+  const S = {
+    container: {
+      fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
+      color: '#1e293b',
+      maxWidth: '100%',
     },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 4000,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userMessage }]
-    })
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Claude API error: ${response.status} - ${errText}`);
-  }
-
-  const data = await response.json();
-  const rawText = data.content[0].text;
-
-  let parsed;
-  try {
-    const cleaned = rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-    parsed = JSON.parse(cleaned);
-  } catch (e) {
-    parsed = { raw_text: rawText, parse_error: true };
-  }
-
-  parsed.metadata = {
-    pillar, platform, format, market,
-    language: language || 'EN',
-    topic: topic || 'auto-generated',
-    generated_at: new Date().toISOString(),
-    model: 'claude-sonnet-4-20250514'
-  };
-
-  return res.status(200).json(parsed);
-}
-
-// ============================================================
-// SAVE — Maps to existing Airtable "Content Calendar" fields
-// ============================================================
-
-async function handleSave(req, res) {
-  const { content } = req.body;
-  if (!content) return res.status(400).json({ error: 'No content to save' });
-
-  // Map language codes to full names (matching existing Airtable options)
-  const LANG_TO_NAME = {
-    'EN': 'English', 'EN-UK': 'English', 'EN-US': 'English',
-    'DE': 'Deutsch', 'ES': 'Español', 'IT': 'Italiano',
-    'PT': 'Português', 'PT-BR': 'Português BR', 'FR': 'Français',
-    'DA': 'Dansk', 'NL': 'Nederlands', 'PL': 'Polski',
-    'SV': 'Svenska', 'NO': 'Norsk', 'FI': 'Suomi',
-    'ZH': '中文', 'JA': '日本語', 'KO': '한국어',
-    'TR': 'Türkçe', 'AR': 'العربية', 'HE': 'עברית',
-    'TH': 'ไทย', 'VI': 'Tiếng Việt', 'HI': 'हिन्दी',
-    'RO': 'Română', 'HU': 'Magyar', 'CS': 'Čeština',
-    'EL': 'Ελληνικά', 'HR': 'Hrvatski', 'SR': 'Srpski', 'BG': 'Български',
-  };
-
-  const langCode = content.metadata?.language || 'EN';
-  const langName = LANG_TO_NAME[langCode] || 'English';
-
-  // Map to EXISTING Airtable field names
-  // Extract a good title (skip 'auto-generated' placeholder)
-  const topicRaw = content.metadata?.topic;
-  const topicValid = (topicRaw && topicRaw !== 'auto-generated') ? topicRaw : null;
-  const title = content.title 
-    || topicValid
-    || (content.post_text ? content.post_text.split('\n')[0].replace(/[^\w\s.,!?-]/g, '').substring(0, 80).trim() : '')
-    || (content.hook_text ? content.hook_text.substring(0, 80) : '')
-    || (content.script && content.script[0] ? (content.script[0].chapter || content.script[0].action || '').substring(0, 80) : '')
-    || ('Content ' + (content.metadata?.pillar || '') + ' ' + (content.metadata?.platform || '') + ' ' + new Date().toISOString().split('T')[0]);
-
-  // Get the main text content (different formats store it differently)
-  const mainText = content.post_text 
-    || content.article_body 
-    || (content.script ? content.script.map(s => `[${s.timestamp || ''}] ${s.chapter || s.action || ''}: ${s.text || s.voiceover || s.text_overlay || s.script_text || ''}`).join('\n\n') : '')
-    || (content.hook_text ? `HOOK: ${content.hook_text}\n\n${(content.script || []).map(s => `[${s.timestamp || ''}] ${s.text_overlay || s.action || ''}`).join('\n')}` : '')
-    || content.raw_text 
-    || '';
-
-  // Map format to match Airtable exactly (lowercase as created)
-  const FORMAT_MAP = {
-    'post': 'post', 'carousel': 'carousel', 'article': 'article',
-    'poll': 'poll', 'video_long': 'video_long', 'video_short': 'video_short', 'tiktok': 'tiktok'
-  };
-
-  const allFields = {
-    'Topic': title,
-    'Platform': content.metadata?.platform || '',
-    'Post Text': mainText,
-    'Visual Direction': content.visual_direction || '',
-    'Language': langName,
-    'Status': 'Draft',
-    'Hashtags': content.hashtags || '',
-    'Pillar': content.metadata?.pillar || '',
-    'Format': FORMAT_MAP[content.metadata?.format] || content.metadata?.format || '',
-    'Market': content.metadata?.market || '',
-    'CTA': content.cta || '',
-    'Content Type': content.content_type || 'AI',
-    'Slides JSON': content.slides ? JSON.stringify(content.slides) : '',
-  };
-
-  // Remove empty values to avoid Airtable errors
-  Object.keys(allFields).forEach(key => {
-    if (!allFields[key]) delete allFields[key];
-  });
-
-  const airtableRes = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE}/${AIRTABLE_CONTENT_TABLE}`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${AIRTABLE_PAT}`,
-      'Content-Type': 'application/json'
+    nav: {
+      display: 'flex',
+      gap: '2px',
+      marginBottom: '24px',
+      background: '#f1f5f9',
+      borderRadius: '12px',
+      padding: '4px',
     },
-    body: JSON.stringify({ fields: allFields })
-  });
-
-  if (!airtableRes.ok) {
-    const errText = await airtableRes.text();
-    throw new Error(`Airtable error: ${airtableRes.status} - ${errText}`);
-  }
-
-  const record = await airtableRes.json();
-  return res.status(200).json({ success: true, record_id: record.id });
-}
-
-// ============================================================
-// LIST
-// ============================================================
-
-async function handleList(req, res) {
-  const { status, pillar, platform } = req.body;
-
-  let filterParts = [];
-  if (status) filterParts.push(`{Status}='${status}'`);
-  if (pillar) filterParts.push(`{Pillar}='${pillar}'`);
-  if (platform) filterParts.push(`{Platform}='${platform}'`);
-
-  let url = `https://api.airtable.com/v0/${AIRTABLE_BASE}/${AIRTABLE_CONTENT_TABLE}?sort%5B0%5D%5Bfield%5D=Date&sort%5B0%5D%5Bdirection%5D=desc&pageSize=50`;
-
-  if (filterParts.length > 0) {
-    const formula = filterParts.length === 1 ? filterParts[0] : `AND(${filterParts.join(',')})`;
-    url += `&filterByFormula=${encodeURIComponent(formula)}`;
-  }
-
-  const airtableRes = await fetch(url, {
-    headers: { 'Authorization': `Bearer ${AIRTABLE_PAT}` }
-  });
-
-  if (!airtableRes.ok) {
-    const errText = await airtableRes.text();
-    throw new Error(`Airtable error: ${airtableRes.status} - ${errText}`);
-  }
-
-  const data = await airtableRes.json();
-  return res.status(200).json({ records: data.records });
-}
-
-// ============================================================
-// UPDATE STATUS
-// ============================================================
-
-async function handleUpdateStatus(req, res) {
-  const { record_id, updates } = req.body;
-  if (!record_id) return res.status(400).json({ error: 'record_id required' });
-
-  // Support both old format (status only) and new format (any fields)
-  let fields = {};
-  if (updates && typeof updates === 'object') {
-    fields = updates;
-  } else if (req.body.status) {
-    fields = { 'Status': req.body.status };
-  } else {
-    return res.status(400).json({ error: 'updates object or status required' });
-  }
-
-  const airtableRes = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE}/${AIRTABLE_CONTENT_TABLE}/${record_id}`, {
-    method: 'PATCH',
-    headers: {
-      'Authorization': `Bearer ${AIRTABLE_PAT}`,
-      'Content-Type': 'application/json'
+    navBtn: (active) => ({
+      flex: 1,
+      padding: '10px 16px',
+      border: 'none',
+      borderRadius: '10px',
+      background: active ? '#1e293b' : 'transparent',
+      color: active ? '#fff' : '#64748b',
+      fontWeight: 600,
+      fontSize: '13px',
+      cursor: 'pointer',
+      transition: 'all 0.2s',
+    }),
+    section: {
+      marginBottom: '20px',
     },
-    body: JSON.stringify({ fields })
-  });
+    sectionLabel: {
+      fontSize: '11px',
+      fontWeight: 700,
+      textTransform: 'uppercase',
+      letterSpacing: '0.08em',
+      color: '#64748b',
+      marginBottom: '8px',
+    },
+    pillarGrid: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+      gap: '8px',
+    },
+    pillarBtn: (p, selected) => ({
+      padding: '12px 10px',
+      border: selected ? `2px solid ${p.color}` : '2px solid #e2e8f0',
+      borderRadius: '12px',
+      background: selected ? `${p.color}10` : '#fff',
+      cursor: 'pointer',
+      textAlign: 'center',
+      transition: 'all 0.2s',
+    }),
+    pillarIcon: { fontSize: '20px', marginBottom: '4px' },
+    pillarLabel: (p) => ({ fontSize: '12px', fontWeight: 700, color: p.color }),
+    pillarSub: { fontSize: '10px', color: '#94a3b8', marginTop: '2px' },
+    chipRow: { display: 'flex', gap: '8px', flexWrap: 'wrap' },
+    chip: (active, color) => ({
+      padding: '8px 16px',
+      border: active ? `2px solid ${color || '#1e293b'}` : '2px solid #e2e8f0',
+      borderRadius: '20px',
+      background: active ? `${color || '#1e293b'}15` : '#fff',
+      cursor: 'pointer',
+      fontSize: '13px',
+      fontWeight: active ? 600 : 400,
+      color: active ? (color || '#1e293b') : '#64748b',
+      transition: 'all 0.2s',
+      whiteSpace: 'nowrap',
+    }),
+    input: {
+      width: '100%',
+      padding: '12px 16px',
+      border: '2px solid #e2e8f0',
+      borderRadius: '12px',
+      fontSize: '14px',
+      outline: 'none',
+      transition: 'border-color 0.2s',
+      boxSizing: 'border-box',
+    },
+    generateBtn: {
+      width: '100%',
+      padding: '14px',
+      border: 'none',
+      borderRadius: '12px',
+      background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
+      color: '#fff',
+      fontSize: '15px',
+      fontWeight: 700,
+      cursor: 'pointer',
+      transition: 'all 0.2s',
+      letterSpacing: '0.02em',
+    },
+    generateBtnDisabled: {
+      opacity: 0.5,
+      cursor: 'not-allowed',
+    },
+    resultBox: {
+      border: '2px solid #e2e8f0',
+      borderRadius: '16px',
+      overflow: 'hidden',
+      marginTop: '20px',
+    },
+    resultHeader: (color) => ({
+      padding: '16px 20px',
+      background: `${color}10`,
+      borderBottom: `2px solid ${color}30`,
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    }),
+    resultBody: {
+      padding: '20px',
+    },
+    resultText: {
+      whiteSpace: 'pre-wrap',
+      lineHeight: 1.7,
+      fontSize: '14px',
+    },
+    actionRow: {
+      display: 'flex',
+      gap: '8px',
+      marginTop: '16px',
+      flexWrap: 'wrap',
+    },
+    actionBtn: (variant) => ({
+      padding: '8px 16px',
+      border: variant === 'primary' ? 'none' : '2px solid #e2e8f0',
+      borderRadius: '8px',
+      background: variant === 'primary' ? '#1e293b' : '#fff',
+      color: variant === 'primary' ? '#fff' : '#475569',
+      fontSize: '13px',
+      fontWeight: 600,
+      cursor: 'pointer',
+      transition: 'all 0.15s',
+    }),
+    slideNav: {
+      display: 'flex',
+      gap: '6px',
+      justifyContent: 'center',
+      padding: '12px',
+      borderTop: '1px solid #e2e8f0',
+    },
+    slideDot: (active, color) => ({
+      width: '8px',
+      height: '8px',
+      borderRadius: '50%',
+      background: active ? color : '#cbd5e1',
+      cursor: 'pointer',
+      transition: 'all 0.2s',
+    }),
+    slideCard: (color) => ({
+      padding: '24px',
+      background: `${color}08`,
+      borderRadius: '12px',
+      marginBottom: '8px',
+    }),
+    slideHeadline: {
+      fontSize: '18px',
+      fontWeight: 700,
+      marginBottom: '8px',
+      lineHeight: 1.3,
+    },
+    slideSubtext: {
+      fontSize: '14px',
+      lineHeight: 1.6,
+      color: '#475569',
+    },
+    badge: (color) => ({
+      display: 'inline-block',
+      padding: '3px 10px',
+      borderRadius: '12px',
+      fontSize: '11px',
+      fontWeight: 700,
+      background: `${color}20`,
+      color: color,
+    }),
+    errorBox: {
+      padding: '12px 16px',
+      background: '#fef2f2',
+      border: '1px solid #fecaca',
+      borderRadius: '8px',
+      color: '#b91c1c',
+      fontSize: '13px',
+      marginBottom: '12px',
+    },
+    loadingOverlay: {
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '60px 20px',
+      gap: '16px',
+    },
+    spinner: {
+      width: '36px',
+      height: '36px',
+      border: '3px solid #e2e8f0',
+      borderTopColor: '#1e293b',
+      borderRadius: '50%',
+      animation: 'spin 0.8s linear infinite',
+    },
+    libraryCard: {
+      padding: '16px',
+      border: '1px solid #e2e8f0',
+      borderRadius: '12px',
+      marginBottom: '8px',
+      cursor: 'pointer',
+      transition: 'all 0.15s',
+    },
+    libraryTitle: {
+      fontWeight: 600,
+      fontSize: '14px',
+      marginBottom: '6px',
+    },
+    libraryMeta: {
+      display: 'flex',
+      gap: '8px',
+      flexWrap: 'wrap',
+    },
+    emptyState: {
+      textAlign: 'center',
+      padding: '40px 20px',
+      color: '#94a3b8',
+    },
+    visualDir: {
+      padding: '12px 16px',
+      background: '#f8fafc',
+      border: '1px dashed #cbd5e1',
+      borderRadius: '8px',
+      fontSize: '12px',
+      color: '#64748b',
+      marginTop: '12px',
+    },
+  };
 
-  if (!airtableRes.ok) {
-    const errText = await airtableRes.text();
-    throw new Error(`Airtable error: ${airtableRes.status} - ${errText}`);
-  }
+  // ============================================================
+  // RENDER HELPERS
+  // ============================================================
 
-  return res.status(200).json({ success: true });
+  const currentPillar = PILLARS.find(p => p.id === pillar);
+  const currentPlatform = PLATFORMS.find(p => p.id === platform);
+  const pillarColor = currentPillar?.color || '#1e293b';
+
+  const renderCarousel = (slides) => {
+    if (!slides || slides.length === 0) return null;
+    const slide = slides[carouselSlide] || slides[0];
+    return (
+      <div>
+        <div style={S.slideCard(pillarColor)}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', marginBottom: '8px' }}>
+            SLIDE {slide.slide || carouselSlide + 1} / {slides.length}
+            {slide.type && <span style={{ marginLeft: '8px', textTransform: 'uppercase' }}>{slide.type}</span>}
+          </div>
+          <div style={S.slideHeadline}>{slide.headline}</div>
+          <div style={S.slideSubtext}>{slide.subtext}</div>
+        </div>
+        <div style={S.slideNav}>
+          {slides.map((_, i) => (
+            <div
+              key={i}
+              style={S.slideDot(i === carouselSlide, pillarColor)}
+              onClick={() => setCarouselSlide(i)}
+            />
+          ))}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 4px' }}>
+          <button
+            style={{ ...S.actionBtn('secondary'), opacity: carouselSlide === 0 ? 0.3 : 1 }}
+            onClick={() => setCarouselSlide(Math.max(0, carouselSlide - 1))}
+            disabled={carouselSlide === 0}
+          >
+            ← Previous
+          </button>
+          <button
+            style={{ ...S.actionBtn('secondary'), opacity: carouselSlide === slides.length - 1 ? 0.3 : 1 }}
+            onClick={() => setCarouselSlide(Math.min(slides.length - 1, carouselSlide + 1))}
+            disabled={carouselSlide === slides.length - 1}
+          >
+            Next →
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderVideoScript = (script) => {
+    if (!script || script.length === 0) return null;
+    return (
+      <div>
+        {script.map((section, i) => (
+          <div key={i} style={{ padding: '12px 0', borderBottom: i < script.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+              <div style={{
+                padding: '4px 10px',
+                background: `${pillarColor}15`,
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: 700,
+                color: pillarColor,
+                whiteSpace: 'nowrap',
+              }}>
+                {section.timestamp}
+              </div>
+              <div style={{ flex: 1 }}>
+                {section.chapter && <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px' }}>{section.chapter}</div>}
+                {section.action && <div style={{ fontWeight: 600, fontSize: '13px', color: '#475569', marginBottom: '4px' }}>[{section.action}]</div>}
+                <div style={{ fontSize: '13px', lineHeight: 1.6 }}>
+                  {section.text || section.voiceover || section.text_overlay || section.script_text || ''}
+                </div>
+                {section.visual_notes && (
+                  <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px', fontStyle: 'italic' }}>
+                    🎬 {section.visual_notes}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderResult = () => {
+    if (!result) return null;
+
+    return (
+      <div ref={resultRef} style={S.resultBox}>
+        <div style={S.resultHeader(pillarColor)}>
+          <div>
+            <span style={S.badge(pillarColor)}>{result.metadata?.pillar}</span>
+            <span style={{ marginLeft: '8px', fontSize: '13px', color: '#64748b' }}>
+              {result.metadata?.platform} · {FORMAT_LABELS[result.metadata?.format] || result.metadata?.format}
+              · {result.metadata?.market} ({result.metadata?.language})
+            </span>
+          </div>
+          <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+            {result.content_type === 'HYBRID' && '⚠️ HYBRID — needs real photos/data'}
+            {result.content_type === 'REAL' && '📸 REAL — needs production'}
+            {result.content_type === 'AI' && '✅ AI — ready to use'}
+          </div>
+        </div>
+
+        <div style={S.resultBody}>
+          {/* Title (for articles/videos) */}
+          {result.title && (
+            <div style={{ fontSize: '20px', fontWeight: 700, marginBottom: '16px', lineHeight: 1.3 }}>
+              {result.title}
+            </div>
+          )}
+
+          {/* Thumbnail suggestion (for videos) */}
+          {result.thumbnail_text && (
+            <div style={{ ...S.visualDir, marginBottom: '12px', marginTop: 0 }}>
+              🖼️ Thumbnail: {result.thumbnail_text}
+            </div>
+          )}
+
+          {/* Post text / Article body */}
+          {(result.post_text || result.article_body) && (
+            <div style={S.resultText}>
+              {result.post_text || result.article_body}
+            </div>
+          )}
+
+          {/* Poll */}
+          {result.poll_question && (
+            <div style={{ marginTop: '16px', padding: '16px', background: '#f8fafc', borderRadius: '12px' }}>
+              <div style={{ fontWeight: 700, marginBottom: '12px' }}>{result.poll_question}</div>
+              {result.poll_options?.map((opt, i) => (
+                <div key={i} style={{
+                  padding: '10px 14px',
+                  background: '#fff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  marginBottom: '6px',
+                  fontSize: '13px',
+                }}>
+                  {opt}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Carousel slides */}
+          {result.slides && result.slides.length > 0 && (
+            <div style={{ marginTop: '16px' }}>
+              <div style={{ ...S.sectionLabel, marginBottom: '12px' }}>CAROUSEL PREVIEW</div>
+              {renderCarousel(result.slides)}
+            </div>
+          )}
+
+          {/* Video script */}
+          {result.script && result.script.length > 0 && (
+            <div style={{ marginTop: '16px' }}>
+              <div style={{ ...S.sectionLabel, marginBottom: '12px' }}>SCRIPT TIMELINE</div>
+              {renderVideoScript(result.script)}
+            </div>
+          )}
+
+          {/* TikTok hook */}
+          {result.hook_text && (
+            <div style={{
+              padding: '16px',
+              background: `${pillarColor}08`,
+              borderRadius: '12px',
+              marginBottom: '12px',
+              borderLeft: `4px solid ${pillarColor}`,
+            }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: pillarColor, marginBottom: '4px' }}>HOOK (first 2 seconds)</div>
+              <div style={{ fontSize: '16px', fontWeight: 700 }}>{result.hook_text}</div>
+            </div>
+          )}
+
+          {/* Audio suggestion */}
+          {result.trending_audio_suggestion && (
+            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '8px' }}>
+              🎵 Audio suggestion: {result.trending_audio_suggestion}
+            </div>
+          )}
+
+          {/* Video description */}
+          {result.description && (
+            <div style={{ marginTop: '12px' }}>
+              <div style={S.sectionLabel}>VIDEO DESCRIPTION</div>
+              <div style={{ fontSize: '12px', color: '#475569', lineHeight: 1.5 }}>{result.description}</div>
+            </div>
+          )}
+
+          {/* Tags */}
+          {result.tags && (
+            <div style={{ marginTop: '8px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              {result.tags.map((tag, i) => (
+                <span key={i} style={{ ...S.badge('#64748b'), fontSize: '10px' }}>{tag}</span>
+              ))}
+            </div>
+          )}
+
+          {/* Visual direction */}
+          {result.visual_direction && (
+            <div style={S.visualDir}>
+              🎨 <strong>Visual direction:</strong> {result.visual_direction}
+            </div>
+          )}
+
+          {/* Hashtags */}
+          {result.hashtags && (
+            <div style={{ marginTop: '12px', fontSize: '13px', color: pillarColor, fontWeight: 500 }}>
+              {result.hashtags}
+            </div>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        <div style={{ ...S.actionRow, padding: '16px 20px', borderTop: '1px solid #f1f5f9' }}>
+          <button style={S.actionBtn('primary')} onClick={handleSave} disabled={saveStatus === 'saving'}>
+            {saveStatus === 'saving' ? '⏳ Saving...' : saveStatus === 'saved' ? '✅ Saved!' : '💾 Save to Calendar'}
+          </button>
+          <button style={S.actionBtn('secondary')} onClick={handleCopy}>📋 Copy Text</button>
+          <button style={S.actionBtn('secondary')} onClick={handleDownload}>⬇️ Download JSON</button>
+          <button style={S.actionBtn('secondary')} onClick={handleGenerate}>🔄 Regenerate</button>
+        </div>
+      </div>
+    );
+  };
+
+  // ============================================================
+  // RENDER: CREATE VIEW
+  // ============================================================
+
+  const renderCreateView = () => (
+    <div>
+      {/* Pillar Selection */}
+      <div style={S.section}>
+        <div style={S.sectionLabel}>1. CONTENT PILLAR</div>
+        <div style={S.pillarGrid}>
+          {PILLARS.map(p => (
+            <div
+              key={p.id}
+              style={S.pillarBtn(p, pillar === p.id)}
+              onClick={() => setPillar(p.id)}
+            >
+              <div style={S.pillarIcon}>{p.icon}</div>
+              <div style={S.pillarLabel(p)}>{p.label}</div>
+              <div style={S.pillarSub}>{p.subtitle}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Platform Selection */}
+      <div style={S.section}>
+        <div style={S.sectionLabel}>2. PLATFORM</div>
+        <div style={S.chipRow}>
+          {PLATFORMS.map(p => (
+            <div
+              key={p.id}
+              style={S.chip(platform === p.id)}
+              onClick={() => handlePlatformChange(p.id)}
+            >
+              {p.icon} {p.id}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Format Selection */}
+      {platform && (
+        <div style={S.section}>
+          <div style={S.sectionLabel}>3. FORMAT</div>
+          <div style={S.chipRow}>
+            {currentPlatform?.formats.map(f => (
+              <div
+                key={f}
+                style={S.chip(format === f, pillarColor)}
+                onClick={() => setFormat(f)}
+              >
+                {FORMAT_LABELS[f]}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Market Selection — Grouped by Region */}
+      <div style={S.section}>
+        <div style={S.sectionLabel}>4. TARGET MARKET</div>
+        {MARKET_REGIONS.map(region => (
+          <div key={region.region} style={{ marginBottom: '10px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase' }}>
+              {region.region}
+            </div>
+            <div style={{ ...S.chipRow, marginBottom: '4px' }}>
+              {region.markets.map(m => (
+                <div
+                  key={m.id}
+                  style={S.chip(market === m.id)}
+                  onClick={() => handleMarketChange(m.id)}
+                >
+                  {m.flag} {m.label}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        {/* Language override — always visible */}
+        <div style={{ marginTop: '12px' }}>
+          <div style={{ ...S.sectionLabel, fontSize: '10px' }}>LANGUAGE (auto-set by market, override if needed)</div>
+          <div style={{ ...S.chipRow, maxHeight: '80px', overflowY: 'auto', flexWrap: 'wrap' }}>
+            {ALL_LANGUAGES.map(l => (
+              <div
+                key={l.id}
+                style={S.chip(language === l.id, pillarColor)}
+                onClick={() => setLanguage(l.id)}
+              >
+                {l.flag} {l.label}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Topic Input */}
+      <div style={S.section}>
+        <div style={S.sectionLabel}>5. TOPIC (optional — leave empty for AI suggestion)</div>
+        <input
+          style={S.input}
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+          placeholder="e.g., optical sorting accuracy, giveaway reduction, company history, labor shortage..."
+          onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
+        />
+      </div>
+
+      {/* Error */}
+      {error && <div style={S.errorBox}>❌ {error}</div>}
+
+      {/* Generate Button */}
+      <button
+        style={{
+          ...S.generateBtn,
+          ...(loading || !pillar || !format ? S.generateBtnDisabled : {}),
+        }}
+        onClick={handleGenerate}
+        disabled={loading || !pillar || !format}
+      >
+        {loading ? '⏳ Generating content...' : '⚡ Generate Content'}
+      </button>
+
+      {/* Loading state */}
+      {loading && (
+        <div style={S.loadingOverlay}>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          <div style={S.spinner} />
+          <div style={{ fontSize: '14px', color: '#64748b' }}>
+            Creating your {FORMAT_LABELS[format] || 'content'}...
+          </div>
+          <div style={{ fontSize: '12px', color: '#94a3b8' }}>
+            {pillar} · {platform} · {market}
+          </div>
+        </div>
+      )}
+
+      {/* Result */}
+      {result && !loading && renderResult()}
+    </div>
+  );
+
+  // ============================================================
+  // RENDER: LIBRARY VIEW
+  // ============================================================
+
+  const renderLibraryView = () => (
+    <div>
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <select
+          style={{ ...S.input, width: 'auto', padding: '8px 12px', fontSize: '13px' }}
+          value={libraryFilter.status}
+          onChange={e => setLibraryFilter(prev => ({ ...prev, status: e.target.value }))}
+        >
+          <option value="">All Status</option>
+          {Object.keys(STATUS_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select
+          style={{ ...S.input, width: 'auto', padding: '8px 12px', fontSize: '13px' }}
+          value={libraryFilter.pillar}
+          onChange={e => setLibraryFilter(prev => ({ ...prev, pillar: e.target.value }))}
+        >
+          <option value="">All Pillars</option>
+          {PILLARS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+        </select>
+        <select
+          style={{ ...S.input, width: 'auto', padding: '8px 12px', fontSize: '13px' }}
+          value={libraryFilter.platform}
+          onChange={e => setLibraryFilter(prev => ({ ...prev, platform: e.target.value }))}
+        >
+          <option value="">All Platforms</option>
+          {PLATFORMS.map(p => <option key={p.id} value={p.id}>{p.id}</option>)}
+        </select>
+        <button style={S.actionBtn('primary')} onClick={handleLoadLibrary}>
+          🔍 Load
+        </button>
+        {updateMsg && (
+          <span style={{ fontSize: '12px', fontWeight: 600, color: updateMsg === 'saved' ? '#059669' : updateMsg === 'error' ? '#ef4444' : '#64748b', marginLeft: '8px' }}>
+            {updateMsg === 'saving' ? '⏳ Saving...' : updateMsg === 'saved' ? '✅ Saved!' : '❌ Error'}
+          </span>
+        )}
+        <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#94a3b8' }}>
+          {savedContents.length} items
+        </span>
+      </div>
+
+      {/* Content list */}
+      {savedContents.length === 0 ? (
+        <div style={S.emptyState}>
+          <div style={{ fontSize: '36px', marginBottom: '12px' }}>📚</div>
+          <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>No content yet</div>
+          <div style={{ fontSize: '13px' }}>Generate and save content to see it here</div>
+        </div>
+      ) : (
+        savedContents.map(record => {
+          const f = record.fields || {};
+          const pil = PILLARS.find(p => p.id === f.Pillar);
+          const isExpanded = expandedId === record.id;
+          const isEditing = editingId === record.id;
+          const statusColor = STATUS_COLORS[f.Status] || '#94a3b8';
+
+          return (
+            <div key={record.id} style={{
+              ...S.libraryCard,
+              border: isExpanded ? '2px solid #cbd5e1' : '1px solid #e2e8f0',
+              background: isEditing ? '#fafbff' : '#fff',
+            }}>
+              {/* Header row — always visible */}
+              <div
+                onClick={() => { if (!isEditing) setExpandedId(isExpanded ? null : record.id); }}
+                style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}
+              >
+                <div style={{ flex: 1 }}>
+                  <div style={S.libraryTitle}>
+                    {(f.Topic && f.Topic !== 'auto-generated') ? f.Topic : (f['Post Text'] ? f['Post Text'].split('\n')[0].substring(0, 60) : 'Untitled')}
+                  </div>
+                  <div style={S.libraryMeta}>
+                    {pil && <span style={S.badge(pil.color)}>{pil.label}</span>}
+                    {f.Platform && <span style={S.badge('#64748b')}>{f.Platform}</span>}
+                    {f.Format && <span style={S.badge('#64748b')}>{f.Format}</span>}
+                    {f.Market && <span style={S.badge('#64748b')}>{f.Market}</span>}
+                    {f.Language && <span style={S.badge('#64748b')}>{f.Language}</span>}
+                    {f.Week && <span style={S.badge('#059669')}>W{f.Week}</span>}
+                    {f.Day && <span style={S.badge('#059669')}>{f.Day}</span>}
+                  </div>
+                  {record.createdTime && (
+                    <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px' }}>
+                      Created: {new Date(record.createdTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                  {/* Quick status change */}
+                  <select
+                    value={f.Status || 'Draft'}
+                    onClick={e => e.stopPropagation()}
+                    onChange={e => {
+                      e.stopPropagation();
+                      handleUpdateField(record.id, { 'Status': e.target.value });
+                    }}
+                    style={{
+                      padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
+                      border: `1px solid ${statusColor}40`, background: `${statusColor}10`, color: statusColor,
+                      cursor: 'pointer', outline: 'none',
+                    }}
+                  >
+                    {Object.keys(STATUS_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <span style={{ fontSize: '14px', color: '#94a3b8', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>▼</span>
+                </div>
+              </div>
+
+              {/* Preview text — always visible */}
+              {!isExpanded && f['Post Text'] && (
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '8px', lineHeight: 1.5 }}>
+                  {f['Post Text'].substring(0, 150)}...
+                </div>
+              )}
+
+              {/* Expanded view */}
+              {isExpanded && !isEditing && (
+                <div style={{ marginTop: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
+                  {/* Full text */}
+                  {f['Post Text'] && (
+                    <div style={{ fontSize: '13px', lineHeight: 1.7, whiteSpace: 'pre-wrap', marginBottom: '12px', padding: '12px', background: '#f8fafc', borderRadius: '8px', maxHeight: '300px', overflowY: 'auto' }}>
+                      {f['Post Text']}
+                    </div>
+                  )}
+                  {/* Visual direction */}
+                  {f['Visual Direction'] && (
+                    <div style={{ fontSize: '12px', color: '#64748b', padding: '8px 12px', background: '#fffbeb', border: '1px dashed #fbbf24', borderRadius: '6px', marginBottom: '10px' }}>
+                      🎨 {f['Visual Direction']}
+                    </div>
+                  )}
+                  {/* Hashtags */}
+                  {f.Hashtags && (
+                    <div style={{ fontSize: '12px', color: '#2563eb', marginBottom: '10px' }}>
+                      {f.Hashtags}
+                    </div>
+                  )}
+                  {/* CTA */}
+                  {f.CTA && (
+                    <div style={{ fontSize: '12px', color: '#059669', marginBottom: '10px' }}>
+                      📌 CTA: {f.CTA}
+                    </div>
+                  )}
+                  {/* Content Type badge */}
+                  {f['Content Type'] && (
+                    <div style={{ marginBottom: '10px' }}>
+                      <span style={S.badge(f['Content Type'] === 'AI' ? '#059669' : f['Content Type'] === 'HYBRID' ? '#d97706' : '#ea580c')}>
+                        {f['Content Type'] === 'AI' ? '✅ AI' : f['Content Type'] === 'HYBRID' ? '⚠️ HYBRID' : '📸 REAL'}
+                      </span>
+                    </div>
+                  )}
+                  {/* Action buttons */}
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <button style={S.actionBtn('primary')} onClick={() => startEdit(record)}>✏️ Edit</button>
+                    <button style={{ ...S.actionBtn('secondary'), border: '2px solid #059669', color: '#059669' }} onClick={(e) => {
+                      e.stopPropagation();
+                      setScheduleId(scheduleId === record.id ? null : record.id);
+                    }}>📅 Schedule</button>
+                    <button style={S.actionBtn('secondary')} onClick={() => {
+                      navigator.clipboard.writeText(f['Post Text'] || '');
+                    }}>📋 Copy</button>
+                    <button style={S.actionBtn('secondary')} onClick={() => {
+                      const blob = new Blob([JSON.stringify(f, null, 2)], { type: 'application/json' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `${(f.Topic || 'content').replace(/[^a-z0-9]/gi, '_')}.json`;
+                      a.click();
+                    }}>⬇️ Export</button>
+                  </div>
+                  {/* Schedule to Calendar form */}
+                  {scheduleId === record.id && (
+                    <div style={{ marginTop: '10px', padding: '12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px' }} onClick={e => e.stopPropagation()}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#059669', marginBottom: '8px' }}>📅 Schedule to Calendar</div>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                        <div>
+                          <label style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '3px' }}>Week</label>
+                          <select value={scheduleFields.week} onChange={e => setScheduleFields(p => ({ ...p, week: e.target.value }))} style={{ padding: '6px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '12px' }}>
+                            <option value="">-</option>
+                            {Array.from({ length: 52 }, (_, i) => i + 1).map(w => <option key={w} value={w}>W{w}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '3px' }}>Day</label>
+                          <select value={scheduleFields.day} onChange={e => setScheduleFields(p => ({ ...p, day: e.target.value }))} style={{ padding: '6px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '12px' }}>
+                            <option value="">-</option>
+                            {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(d => <option key={d} value={d}>{d}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '3px' }}>Date</label>
+                          <input type="date" value={scheduleFields.date} onChange={e => setScheduleFields(p => ({ ...p, date: e.target.value }))} style={{ padding: '5px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '12px' }} />
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button style={{ ...S.actionBtn('primary'), background: '#059669' }} onClick={() => scheduleToCalendar(record.id)}>
+                          ✅ Add to Calendar
+                        </button>
+                        <button style={S.actionBtn('secondary')} onClick={() => setScheduleId(null)}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Edit mode */}
+              {isEditing && (
+                <div style={{ marginTop: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '12px' }} onClick={e => e.stopPropagation()}>
+                  {/* Title edit */}
+                  <div style={{ marginBottom: '10px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Title / Topic</label>
+                    <input
+                      style={S.input}
+                      value={editFields.topic}
+                      onChange={e => setEditFields(prev => ({ ...prev, topic: e.target.value }))}
+                    />
+                  </div>
+                  {/* Status edit */}
+                  <div style={{ marginBottom: '10px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Status</label>
+                    <select
+                      style={{ ...S.input, padding: '8px 12px' }}
+                      value={editFields.status}
+                      onChange={e => setEditFields(prev => ({ ...prev, status: e.target.value }))}
+                    >
+                      {Object.keys(STATUS_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  {/* Post text edit */}
+                  <div style={{ marginBottom: '10px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Content Text</label>
+                    <textarea
+                      style={{ ...S.input, minHeight: '200px', resize: 'vertical', lineHeight: 1.6 }}
+                      value={editFields.postText}
+                      onChange={e => setEditFields(prev => ({ ...prev, postText: e.target.value }))}
+                    />
+                  </div>
+                  {/* Hashtags edit */}
+                  <div style={{ marginBottom: '10px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Hashtags</label>
+                    <input
+                      style={S.input}
+                      value={editFields.hashtags}
+                      onChange={e => setEditFields(prev => ({ ...prev, hashtags: e.target.value }))}
+                    />
+                  </div>
+                  {/* Visual direction edit */}
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Visual Direction</label>
+                    <textarea
+                      style={{ ...S.input, minHeight: '60px', resize: 'vertical' }}
+                      value={editFields.visual}
+                      onChange={e => setEditFields(prev => ({ ...prev, visual: e.target.value }))}
+                    />
+                  </div>
+                  {/* Save / Cancel */}
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button style={S.actionBtn('primary')} onClick={() => saveEdit(record.id)}>💾 Save Changes</button>
+                    <button style={S.actionBtn('secondary')} onClick={() => setEditingId(null)}>Cancel</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+
+  // ============================================================
+  // MAIN RENDER
+  // ============================================================
+
+  return (
+    <div style={S.container}>
+      {/* Navigation */}
+      <div style={S.nav}>
+        <button style={S.navBtn(view === 'create')} onClick={() => setView('create')}>
+          ⚡ Create
+        </button>
+        <button style={S.navBtn(view === 'library')} onClick={() => { setView('library'); handleLoadLibrary(); }}>
+          📚 Library
+        </button>
+      </div>
+
+      {/* Views */}
+      {view === 'create' && renderCreateView()}
+      {view === 'library' && renderLibraryView()}
+    </div>
+  );
 }
