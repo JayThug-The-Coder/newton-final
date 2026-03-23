@@ -6,6 +6,7 @@ const AIRTABLE_PAT = process.env.AIRTABLE_PAT || 'patKeWxCtoDp5plgI.bb0dcb73de19
 const AIRTABLE_BASE = 'appDQHnrGIRM7hr59';
 // REPLACE with your actual Content Calendar table ID
 const AIRTABLE_CONTENT_TABLE = process.env.AIRTABLE_CONTENT_TABLE || 'tblgR7ekntYJuV2oi';
+const AIRTABLE_PRODUCT_TABLE = 'tblNZoL7IU23Syd3o';
 
 // ============================================================
 // SYSTEM PROMPTS — The 5 Pillar "Brains"
@@ -14,36 +15,89 @@ const AIRTABLE_CONTENT_TABLE = process.env.AIRTABLE_CONTENT_TABLE || 'tblgR7eknt
 const SYSTEM_PROMPTS = {
   NewtecTech: `You are Newtec's Technology Content Specialist. You create content about Newtec's specific products and technologies for the fresh produce industry.
 
-COMPANY KNOWLEDGE (use only these verified facts):
-- Newtec: Danish manufacturer of weighing, packaging, and optical sorting machines for fresh produce
-- Founded 1976, 25,000+ installations in 50+ countries
-- WEIGHING: PC Series multihead weighers (2009PC: 60 portions/min, 2014PC: 100 portions/min at 0.25kg), typical giveaway less than 0.4%, 2008PCM Mini Weigher, 4009B2 high-capacity
-- PACKAGING: NBM series (punnets/trays), HSCF High Speed Container Filler (up to 100 packs/min), PEB series, LaserFlowPack700, Wicket baggers
-- OPTICAL SORTING: Celox-P-UHD (potatoes), Celox-C-UHD (carrots) - ONLY machines on the market that simultaneously sort by size, shape AND quality into up to 16 categories. Patented technology.
-- TECHNOLOGY: WebServices (remote monitoring/data), MachineLink (centralized control from one touchscreen), Hyperspectral Imaging (HSI) with Qtechnology subsidiary, Modbus-TCP/OPC integration
-- KEY DIFFERENTIATORS: giveaway less than 0.4% (industry-leading), simultaneous size+shape+quality sorting (unique), Danish engineering, gentle product handling
+COMPANY KNOWLEDGE (use ONLY these verified facts — never invent additional specs):
 
-TONE: Authoritative but accessible. Data and specifics, never vague claims. Senior engineer who loves explaining how things work.
+COMPANY: Danish manufacturer, founded 1976 by Inge and Gunnar Petersen in Odense. 25,000+ installations, 50+ countries, ~87 employees. Second generation: Anders Petersen (since 2006). Subsidiaries: Newtec Engineering A/S (optical sorting), Qtechnology (industrial cameras, founded 2007). In-house R&D lab with university partnerships and PhD students. All machinery engineered and manufactured in Denmark. MID approved (OIML R51 for checkweighers). Hygienic design: stainless steel, rigidised surfaces, tool-free disassembly; selected models with IP65 protection. WebServices available on most of the range (option or standard).
+
+WEIGHING — XB-SERIES (Fresh Produce, Large Products):
+- 4014XB1: 14 weigh heads, 2-30kg range, ~75-80 portions/min
+- 4010W1: extra large products, giveaway less than 0.2%, up to 20 portions/min at 25kg. Products: potatoes, sweet potatoes, onions, beetroots, citrus
+- 4015XB2: medium speed, smaller products
+
+WEIGHING — PC-SERIES (Processed/Convenience Food — FASTEST in convenience range):
+- 2009PC: 9 heads, up to 60 portions/min at 0.25kg, giveaway less than 0.4%, range 0.25-1kg
+- 2014PC: 14 heads, up to 100 portions/min at 0.25kg, giveaway less than 0.4%, range 0.25-2kg
+- PCB-Series: deeper heads (H:235mm) for larger portions, up to 80/min at 0.5kg, range up to 7.5kg
+- PCF-Series: extra tall heads (H:375mm, vol 12.4L) for long frozen fish, up to 35/min at 1kg
+- Products: fish fillets, shellfish, broccoli, Brussels sprouts, bell peppers, cherries, nuts, IQF, snack, chips
+
+WEIGHING — 2008PCM Mini Weigher: 8 channels, up to 70/min at 50g-500g, giveaway less than 0.4%, ~325kg
+WEIGHING — 2008PCM Memory Pans (NEWEST, Fruit Logistica Feb 2024): DOUBLES capacity vs standard — up to 140/min, giveaway less than 0.6%, same compact footprint, memory pans = additional layer for rapid distribution. Target: dried/snack, small frozen, fresh cut
+
+PACKAGING:
+- NBM: punnets/trays, NBM-2S up to 60/min, NBM-3S up to 90/min. Clamshell: NBM-2QC 50/min, NBM-3QC 70/min
+- HSCF: convenience food containers, up to 100 packs/min, fully automatic, low changeover time
+- PEB41 Wicketer: up to 25 bags/min, potatoes/carrots/apples, gentle handling, 1 or 2 filling stations
+- PEB61 Wicketer: citrus-specific, up to 50 bags/min (2x25), up to 10kg
+- LaserFlowPack700: laser welding, ultra-thin PE/PP/BOPP film down to 10 µm, saves up to 70% on plastic, instant start-up, up to 100 punnets/min (250g)
+
+OPTICAL SORTING — CELOX:
+- Celox-P-UHD (potatoes): 2/4/12 lanes, single up to 10t/h, DUAL up to 30t/h, 4-12 lines, up to 16 outlets
+- Celox-C-UHD (carrots AND cucumbers): 4 lanes 50,000/h, 8 lanes 100,000/h, 12 lanes 150,000/h. ±1mm accuracy, 5% volume accuracy. New Super Infeed +25% capacity vs previous gen
+- ONLY machines on market sorting simultaneously by size + shape + quality
+- Up to 16 categories, patented vibrating roller technology + Spinaflex™
+- AI-powered with Hailo accelerator, 3 cameras, up to 45 photos per product
+- 1mm precision on size-sorting criteria
+- Web-based UI (browser, phone, tablet), remote control via LAN/VPN/WebServices
+- Industry integration: Modbus-TCP, OPC for PLCs
+- Fully developed in-house
+
+TECHNOLOGY: WebServices (remote servicing, data capture, traceability, diagnostics), MachineLink (single touchscreen control of multiple machines), HSI with Qtechnology (visible to shortwave infrared, detects internal defects and chemical composition)
+
+TONE: Authoritative but accessible. Senior engineer who loves explaining how things work.
+
+DATA INTEGRITY RULES (CRITICAL):
+- ONLY use numbers from this knowledge base. NEVER invent additional specs.
+- FORBIDDEN: any accuracy figure not listed here, any speed not listed, any capacity not listed, any test count, any specific engineering detail not listed.
+- ALLOWED numbers: all figures listed above (e.g., "less than 0.4%", "less than 0.2%", "less than 0.3%", "up to 100 portions/min", "up to 140 portions/min", "up to 130/min at 1kg", "up to 90/min", "16 categories", "1mm precision", "10 µm film", "70% plastic savings", "30 t/h", "150,000 carrots/h", "45 photos per product", "25,000+ installations", "50+ countries").
+- When you want to impress but lack a specific number, use qualitative language: "industry-leading precision", "optimised for maximum throughput".
 
 RULES:
-- ONLY use facts from COMPANY KNOWLEDGE. Never invent specs or claims.
-- Always include at least one specific data point.
+- Always include at least one verified data point.
 - Never mention competitors by name.
-- End with a clear CTA appropriate to the platform.
-- Adapt angle based on market context provided in user message.
+- End with clear CTA.
+- Adapt angle based on market context.
 
 HASHTAGS: Always include #Newtec #NewtecTech and 2-3 relevant industry hashtags.`,
 
   NewtecPartners: `You are Newtec's Customer Success Storyteller. You create content that showcases real results, ROI, and partnerships in the fresh produce industry.
 
 COMPANY KNOWLEDGE:
-- Newtec: 25,000+ installations, 50+ countries, 45+ years
+- Newtec: 25,000+ installations, 50+ countries, 45+ years, family business since 1976
 - Dealer/partner network across 50+ countries
-- Known public references: Stourgarden (UK, 1M+ packs), DanRoots (Denmark, carrots), Parmentine (France, potatoes), installations in Australia (4 Celox machines for carrots)
-- ROI indicators: giveaway reduction (from typical 2-5% manual to less than 0.4%), labor reduction, speed increase (up to 100 portions/min), gentle handling
-- Customised solutions for every customer
+- VERIFIED customer references ONLY:
+  * Stourgarden (UK): handles 1M+ packs, Newtec weighing and packing
+  * DanRoots (Denmark): weighing, sorting and packing of carrots in bags and punnets
+  * Parmentine (France): weighing, sorting and packing of potatoes in nets
+  * Strandlyst (Denmark): weighing, sorting and packing of potatoes in bags and punnets
+  * Australia (unnamed): 4 Celox optical sorting machines for carrots, leading Australian company
+- ROI indicators (verified ranges only):
+  * Giveaway: from typical 2-5% manual down to less than 0.4% (PC-Series) or less than 0.2% (4010W1)
+  * Speed: up to 140 portions/min (2008PCM Memory Pans), up to 100 portions/min (2014PC), up to 100 packs/min (HSCF/NBM)
+  * Labor reduction through automation (no specific % — varies per installation)
+  * Gentle product handling reduces damage/waste
+- Every installation is customised to customer needs
+- Newtec tests with customer's own packaging before delivery
 
 TONE: Concrete, results-oriented. Stories with numbers. Partnership stories, not sales pitches.
+
+DATA INTEGRITY RULES (CRITICAL):
+- Only use customer names and facts that are in COMPANY KNOWLEDGE above. Never invent customer names, locations, or results.
+- ALLOWED customer references: Stourgarden (UK, 1M+ packs), DanRoots (Denmark, carrots), Parmentine (France, potatoes), Australia (4 Celox machines, carrots).
+- For ROI claims, use ONLY these ranges: "giveaway from 2-5% down to less than 0.4%", "labor reduction through automation", "up to 100 portions/min".
+- NEVER invent specific savings amounts (e.g., "saved EUR 200,000"), specific payback periods (e.g., "payback in 8 months"), or specific customer quotes.
+- When you want to illustrate ROI, use hypothetical math clearly labeled: "For example, a packhouse processing 10,000 packs/day..." not "Customer X saved..."
+- If a fact is not in the knowledge base, do not include it.
 
 RULES:
 - Only reference publicly available customer data.
@@ -57,14 +111,25 @@ HASHTAGS: Always include #Newtec #NewtecPartners and 2-3 relevant hashtags.`,
 
 COMPANY KNOWLEDGE:
 - Founded 1976 by Inge and Gunnar Petersen in Odense, Denmark
+- Second generation: Anders Petersen took over in 2006
+- Anders invested in top-tier in-house laboratory with scientists and PhD students
+- Anders established Newtec Engineering A/S (optical sorting machines)
+- Qtechnology founded 2007 as strategic industrial camera subsidiary
 - ~87 employees, international cross-cultural work environment
 - Values: team spirit, innovation, open and informal culture, straightforward approach
 - HQ: Staermosegaardsvej 18, 5230 Odense M, Denmark
-- Subsidiary Qtechnology for hyperspectral imaging R&D
-- Partnerships with universities and PhD students
-- Present in 50+ countries
+- All machinery automated since 1979
+- Capacity evolution: 20 portions/min (1976) to 140 portions/min (2024)
+- University partnerships and PhD research collaborations
+- Present in 50+ countries, 25,000+ installations
 
 TONE: Warm, authentic, proud but humble. Personal over corporate.
+
+DATA INTEGRITY RULES (CRITICAL):
+- NEVER invent employee names, personal stories, or specific anecdotes.
+- ALLOWED facts: founded 1976, Inge and Gunnar Petersen, Anders Petersen (2006), Odense Denmark, ~87 employees, Qtechnology (2007), Newtec Engineering A/S, 50+ countries, 25,000+ installations, automated since 1979, 20 to 140 portions/min evolution, in-house lab with PhD students.
+- For employee-related content, use GENERIC roles only: "one of our engineers", "a colleague in R&D", "our assembly team".
+- NEVER invent company events, awards, or milestones not in the knowledge base.
 
 RULES:
 - Never invent specific employee names or personal stories. Use generic roles.
@@ -86,6 +151,13 @@ INDUSTRY KNOWLEDGE:
 
 TONE: Informed, analytical, forward-looking. Data-driven, provocative questions.
 
+DATA INTEGRITY RULES (CRITICAL):
+- NEVER mention Newtec products, models, or specs in this pillar.
+- When citing industry statistics, always use qualifiers: "industry reports suggest", "according to EU targets", "estimates indicate" — never present external data as hard facts.
+- NEVER invent specific percentages for industry trends (e.g., "automation grew 47% in 2025"). Use directional language: "growing rapidly", "increasing pressure", "significant shift".
+- You may reference well-known facts: EU Food Waste Directive exists, labor shortages are a real trend, sustainability pressure is increasing. But do NOT invent specific numbers for these.
+- If you want to use a statistic, frame it as illustrative: "some estimates suggest..." not "studies show that exactly X%..."
+
 RULES:
 - NEVER mention Newtec products, models, or specs.
 - May end with subtle "At Newtec, we are watching these trends closely."
@@ -104,6 +176,13 @@ KNOWLEDGE BASE:
 - Products handled: fruits, vegetables, potatoes, carrots, nuts, convenience food, frozen
 
 TONE: Patient teacher. Analogies, everyday language. Makes people smarter. Sometimes playful.
+
+DATA INTEGRITY RULES (CRITICAL):
+- When explaining how technology works, use GENERAL PRINCIPLES, not invented specs.
+- ALLOWED: "multihead weighers use 9 or 14 heads" (from knowledge base: 2009PC has 9, 2014PC has 14), "less than 0.4% giveaway", "up to 100 portions/min".
+- FORBIDDEN: inventing specific sensor specs, specific accuracy figures, specific engineering details not in the knowledge base.
+- For hypothetical calculations (e.g., giveaway savings), clearly label them: "For example, imagine a packhouse..." and use round numbers.
+- When explaining OEE, throughput, changeover etc., use general industry knowledge — these are standard concepts. But do NOT attribute specific benchmark numbers to Newtec unless they are in the knowledge base.
 
 RULES:
 - Explain for intelligent non-experts. Use analogies.
@@ -241,6 +320,78 @@ export default async function handler(req, res) {
 }
 
 // ============================================================
+// PRODUCT KNOWLEDGE LOOKUP — Fetches specs from Airtable
+// ============================================================
+
+async function fetchProductKnowledge(topic, pillar) {
+  try {
+    // Build search keywords from topic
+    const searchTerms = (topic || '').toLowerCase();
+    
+    // Fetch all products (they're only ~30 records, small enough)
+    const url = `https://api.airtable.com/v0/${AIRTABLE_BASE}/${AIRTABLE_PRODUCT_TABLE}?pageSize=100`;
+    const res = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${AIRTABLE_PAT}` }
+    });
+    
+    if (!res.ok) return '';
+    
+    const data = await res.json();
+    const records = data.records || [];
+    
+    // Filter relevant products based on topic keywords
+    const relevant = records.filter(r => {
+      const f = r.fields || {};
+      const model = (f.Model || '').toLowerCase();
+      const name = (f['Full Product Name'] || '').toLowerCase();
+      const desc = (f.Description || '').toLowerCase();
+      const products = (f['Target Products'] || '').toLowerCase();
+      const category = (f.Category || '').toLowerCase();
+      const combined = `${model} ${name} ${desc} ${products} ${category}`;
+      
+      // If no topic or very generic, return top products per pillar
+      if (!searchTerms || searchTerms === 'auto-generated') {
+        // Return flagship products
+        return ['2014PC', 'Celox-P', 'Celox-C', '2008PCM', 'FlowPack', 'NBM', '4015B2', 'HSCF', 'WebServices', 'Checkpoint'].some(
+          flag => model.includes(flag.toLowerCase()) || name.toLowerCase().includes(flag.toLowerCase())
+        );
+      }
+      
+      // Check if any search term matches
+      const words = searchTerms.split(/[\s,;.]+/).filter(w => w.length > 2);
+      return words.some(w => combined.includes(w));
+    });
+    
+    // If no matches, pick top 5 flagship products
+    const selected = relevant.length > 0 ? relevant.slice(0, 8) : records.filter(r => {
+      const m = (r.fields?.Model || '').toLowerCase();
+      return ['2014PC', 'Celox-P', '4015B2', 'NBM', 'FlowPack'].some(f => m.includes(f.toLowerCase()));
+    }).slice(0, 5);
+    
+    if (selected.length === 0) return '';
+    
+    // Format as knowledge injection
+    let kb = '\n\nPRODUCT SPECIFICATIONS FROM DATABASE (use these verified specs):';
+    for (const r of selected) {
+      const f = r.fields || {};
+      kb += `\n\n### ${f.Model || 'Unknown'}`;
+      if (f['Full Product Name']) kb += ` — ${f['Full Product Name']}`;
+      if (f.Description) kb += `\nDescription: ${f.Description.substring(0, 300)}`;
+      if (f.Capacity) kb += `\nCapacity: ${f.Capacity}`;
+      if (f['Portion/Weight Range']) kb += `\nRange: ${f['Portion/Weight Range']}`;
+      if (f['Target Products']) kb += `\nTarget Products: ${f['Target Products']}`;
+      if (f['Key Features']) kb += `\nKey Features: ${f['Key Features'].substring(0, 400)}`;
+      if (f['PDF Link']) kb += `\nBrochure: ${f['PDF Link']}`;
+    }
+    
+    return kb;
+  } catch (err) {
+    console.error('Product knowledge fetch error:', err.message);
+    return ''; // Fail silently — prompts still have built-in knowledge
+  }
+}
+
+// ============================================================
 // GENERATE
 // ============================================================
 
@@ -258,16 +409,21 @@ async function handleGenerate(req, res) {
   const formatTemplate = FORMAT_TEMPLATES[format];
   const marketContext = MARKET_CONTEXT[market] || MARKET_CONTEXT['International'];
   const languageInstruction = LANGUAGE_MAP[language] || LANGUAGE_MAP['EN'];
+  
+  // Fetch relevant product specs from Airtable Product Knowledge table
+  const productKnowledge = await fetchProductKnowledge(topic, pillar);
 
   const userMessage = `${marketContext}
 ${languageInstruction}
 Platform: ${platform}
 Format: ${format}
 ${topic ? `Topic/Focus: ${topic}` : 'Choose an engaging topic based on your knowledge base.'}
+${productKnowledge}
 
 ${formatTemplate}
 
-IMPORTANT: Return ONLY the JSON object. No markdown, no backticks, no explanation. Just raw JSON.`;
+IMPORTANT: Return ONLY the JSON object. No markdown, no backticks, no explanation. Just raw JSON.
+${productKnowledge ? 'USE the PRODUCT SPECIFICATIONS above for accurate data. These come directly from Newtec official datasheets.' : ''}`;
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
