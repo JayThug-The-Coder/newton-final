@@ -140,6 +140,8 @@ export default function ContentLab2() {
   const [editFields, setEditFields] = useState({});
   const [expandedId, setExpandedId] = useState(null);
   const [updateMsg, setUpdateMsg] = useState(null);
+  const [scheduleId, setScheduleId] = useState(null);
+  const [scheduleFields, setScheduleFields] = useState({ week: '', day: '', date: '' });
   const resultRef = useRef(null);
 
   // ============================================================
@@ -279,6 +281,17 @@ export default function ContentLab2() {
       'Visual Direction': editFields.visual,
     });
     setEditingId(null);
+  };
+
+  const scheduleToCalendar = async (recordId) => {
+    const updates = {};
+    if (scheduleFields.week) updates['Week'] = parseInt(scheduleFields.week);
+    if (scheduleFields.day) updates['Day'] = scheduleFields.day;
+    if (scheduleFields.date) updates['Date'] = scheduleFields.date;
+    updates['Status'] = 'Approved';
+    await handleUpdateField(recordId, updates);
+    setScheduleId(null);
+    setScheduleFields({ week: '', day: '', date: '' });
   };
 
   // ============================================================
@@ -963,14 +976,23 @@ export default function ContentLab2() {
                 style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}
               >
                 <div style={{ flex: 1 }}>
-                  <div style={S.libraryTitle}>{f.Topic || 'Untitled'}</div>
+                  <div style={S.libraryTitle}>
+                    {(f.Topic && f.Topic !== 'auto-generated') ? f.Topic : (f['Post Text'] ? f['Post Text'].split('\n')[0].substring(0, 60) : 'Untitled')}
+                  </div>
                   <div style={S.libraryMeta}>
                     {pil && <span style={S.badge(pil.color)}>{pil.label}</span>}
                     {f.Platform && <span style={S.badge('#64748b')}>{f.Platform}</span>}
                     {f.Format && <span style={S.badge('#64748b')}>{f.Format}</span>}
                     {f.Market && <span style={S.badge('#64748b')}>{f.Market}</span>}
                     {f.Language && <span style={S.badge('#64748b')}>{f.Language}</span>}
+                    {f.Week && <span style={S.badge('#059669')}>W{f.Week}</span>}
+                    {f.Day && <span style={S.badge('#059669')}>{f.Day}</span>}
                   </div>
+                  {record.createdTime && (
+                    <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px' }}>
+                      Created: {new Date(record.createdTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                   {/* Quick status change */}
@@ -1038,6 +1060,10 @@ export default function ContentLab2() {
                   {/* Action buttons */}
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     <button style={S.actionBtn('primary')} onClick={() => startEdit(record)}>✏️ Edit</button>
+                    <button style={{ ...S.actionBtn('secondary'), border: '2px solid #059669', color: '#059669' }} onClick={(e) => {
+                      e.stopPropagation();
+                      setScheduleId(scheduleId === record.id ? null : record.id);
+                    }}>📅 Schedule</button>
                     <button style={S.actionBtn('secondary')} onClick={() => {
                       navigator.clipboard.writeText(f['Post Text'] || '');
                     }}>📋 Copy</button>
@@ -1050,6 +1076,38 @@ export default function ContentLab2() {
                       a.click();
                     }}>⬇️ Export</button>
                   </div>
+                  {/* Schedule to Calendar form */}
+                  {scheduleId === record.id && (
+                    <div style={{ marginTop: '10px', padding: '12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px' }} onClick={e => e.stopPropagation()}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#059669', marginBottom: '8px' }}>📅 Schedule to Calendar</div>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                        <div>
+                          <label style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '3px' }}>Week</label>
+                          <select value={scheduleFields.week} onChange={e => setScheduleFields(p => ({ ...p, week: e.target.value }))} style={{ padding: '6px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '12px' }}>
+                            <option value="">-</option>
+                            {Array.from({ length: 52 }, (_, i) => i + 1).map(w => <option key={w} value={w}>W{w}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '3px' }}>Day</label>
+                          <select value={scheduleFields.day} onChange={e => setScheduleFields(p => ({ ...p, day: e.target.value }))} style={{ padding: '6px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '12px' }}>
+                            <option value="">-</option>
+                            {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(d => <option key={d} value={d}>{d}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '3px' }}>Date</label>
+                          <input type="date" value={scheduleFields.date} onChange={e => setScheduleFields(p => ({ ...p, date: e.target.value }))} style={{ padding: '5px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '12px' }} />
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button style={{ ...S.actionBtn('primary'), background: '#059669' }} onClick={() => scheduleToCalendar(record.id)}>
+                          ✅ Add to Calendar
+                        </button>
+                        <button style={S.actionBtn('secondary')} onClick={() => setScheduleId(null)}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
