@@ -337,17 +337,37 @@ async function handleSave(req, res) {
   const langName = LANG_TO_NAME[langCode] || 'English';
 
   // Map to EXISTING Airtable field names
+  // Extract a good title
+  const title = content.title 
+    || content.metadata?.topic 
+    || (content.post_text ? content.post_text.split('\n')[0].substring(0, 80) : '')
+    || (content.hook_text ? content.hook_text.substring(0, 80) : '')
+    || 'Content ' + new Date().toISOString().split('T')[0];
+
+  // Get the main text content (different formats store it differently)
+  const mainText = content.post_text 
+    || content.article_body 
+    || (content.script ? content.script.map(s => `[${s.timestamp || ''}] ${s.chapter || s.action || ''}: ${s.text || s.voiceover || s.text_overlay || s.script_text || ''}`).join('\n\n') : '')
+    || (content.hook_text ? `HOOK: ${content.hook_text}\n\n${(content.script || []).map(s => `[${s.timestamp || ''}] ${s.text_overlay || s.action || ''}`).join('\n')}` : '')
+    || content.raw_text 
+    || '';
+
+  // Map format to match Airtable exactly (lowercase as created)
+  const FORMAT_MAP = {
+    'post': 'post', 'carousel': 'carousel', 'article': 'article',
+    'poll': 'poll', 'video_long': 'video_long', 'video_short': 'video_short', 'tiktok': 'tiktok'
+  };
+
   const allFields = {
-    'Topic': content.metadata?.topic || '',
+    'Topic': title,
     'Platform': content.metadata?.platform || '',
-    'Post Text': content.post_text || content.article_body || content.raw_text || '',
+    'Post Text': mainText,
     'Visual Direction': content.visual_direction || '',
     'Language': langName,
     'Status': 'Draft',
     'Hashtags': content.hashtags || '',
-    // New fields (added by user to Airtable)
     'Pillar': content.metadata?.pillar || '',
-    'Format': content.metadata?.format || '',
+    'Format': FORMAT_MAP[content.metadata?.format] || content.metadata?.format || '',
     'Market': content.metadata?.market || '',
     'CTA': content.cta || '',
     'Content Type': content.content_type || 'AI',
@@ -414,8 +434,18 @@ async function handleList(req, res) {
 // ============================================================
 
 async function handleUpdateStatus(req, res) {
-  const { record_id, status } = req.body;
-  if (!record_id || !status) return res.status(400).json({ error: 'record_id and status required' });
+  const { record_id, updates } = req.body;
+  if (!record_id) return res.status(400).json({ error: 'record_id required' });
+
+  // Support both old format (status only) and new format (any fields)
+  let fields = {};
+  if (updates && typeof updates === 'object') {
+    fields = updates;
+  } else if (req.body.status) {
+    fields = { 'Status': req.body.status };
+  } else {
+    return res.status(400).json({ error: 'updates object or status required' });
+  }
 
   const airtableRes = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE}/${AIRTABLE_CONTENT_TABLE}/${record_id}`, {
     method: 'PATCH',
@@ -423,7 +453,7 @@ async function handleUpdateStatus(req, res) {
       'Authorization': `Bearer ${AIRTABLE_PAT}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ fields: { 'Status': status } })
+    body: JSON.stringify({ fields })
   });
 
   if (!airtableRes.ok) {
