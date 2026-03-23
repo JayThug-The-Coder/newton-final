@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Search, Zap, Mail, Brain, Database, MessageSquare, Bot, Users, Target, ChevronRight, ChevronDown, Loader2, Activity, Globe, RefreshCw, Send, LayoutDashboard, AlertTriangle, Workflow, Sparkles, Instagram, Youtube, Linkedin, Building2, Crown, Microscope, Calendar, Copy, Check, Package, Edit3, X, Clock } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import ContentLab2 from './ContentLab2';
 
 const VF=import.meta.env.VITE_VOICEFLOW_ID||"69a0108cce4d2051096463d8";
 const AP=import.meta.env.VITE_AIRTABLE_PAT||"";
@@ -233,71 +234,7 @@ return<><style>{CSS}</style><div style={{minHeight:"100vh"}}>
 </div>}
 
 {/* ═══ CONTENT LAB TAB ═══ */}
-{tab==="content"&&<div className="cs an d5" style={{marginBottom:28,overflow:"hidden"}}>
-<div style={{padding:"16px 20px",borderBottom:"1px solid #F0EBE5",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-<div><h2 style={{fontFamily:F,fontWeight:700,fontSize:"1.1rem",display:"flex",alignItems:"center",gap:8}}><Sparkles size={18} style={{color:"var(--b)"}}/> Content Lab</h2>
-<span style={{fontSize:".74rem",color:"var(--tm)"}}>AI-powered content with web search · {selProf.length} profile{selProf.length!==1?"s":""} · {selChan.length} channel{selChan.length!==1?"s":""}</span></div>
-<select value={clang} onChange={e=>sCLang(e.target.value)} style={{padding:"5px 10px",borderRadius:6,border:"1px solid var(--bd)",background:"var(--s)",fontSize:".76rem",fontWeight:600,color:"var(--b)",cursor:"pointer",fontFamily:"'DM Sans'",outline:"none"}}>{["English","Dansk","Deutsch","Français","Español","Português","Italiano","Nederlands","Norsk","Svenska","Suomi","Polski","Čeština","Slovenščina","Srpski","Lietuvių","Ελληνικά","中文","한국어","हिन्दी","العربية","Türkçe","Português BR"].map(l=><option key={l} value={l}>{l}</option>)}</select>
-</div>
-<div style={{padding:"8px 20px",borderBottom:"1px solid #F0EBE5",display:"flex",gap:4,flexWrap:"wrap",alignItems:"center"}}>
-<span style={{fontSize:".64rem",fontWeight:700,color:"var(--tm)",textTransform:"uppercase",marginRight:4}}>Profiles:</span>
-{[{k:"company",l:"Company Page"},{k:"sales",l:"Head of Sales"},{k:"rnd",l:"Head of R&D"},{k:"ceo",l:"CEO"},{k:"marketing",l:"Marketing"},{k:"service",l:"Service"}].map(p=>{const on=selProf.includes(p.k);return<button key={p.k} onClick={()=>sSelProf(on?selProf.filter(x=>x!==p.k):[...selProf,p.k])} style={{padding:"4px 9px",borderRadius:6,border:on?"1px solid rgba(155,118,83,.4)":"1px solid var(--bd)",background:on?"rgba(155,118,83,.08)":"var(--s)",fontSize:".68rem",fontWeight:on?700:500,color:on?"#7A5C3E":"var(--t2)",cursor:"pointer"}}>{p.l}</button>})}
-<span style={{fontSize:".64rem",fontWeight:700,color:"var(--tm)",textTransform:"uppercase",marginLeft:8,marginRight:4}}>Channels:</span>
-{[{k:"linkedin",l:"LinkedIn",cl:CL.li},{k:"instagram",l:"Instagram",cl:CL.ig},{k:"youtube",l:"YouTube",cl:CL.yt}].map(c=>{const on=selChan.includes(c.k);return<button key={c.k} onClick={()=>sSelChan(on?selChan.filter(x=>x!==c.k):[...selChan,c.k])} style={{padding:"4px 9px",borderRadius:6,border:on?`1px solid ${c.cl}30`:"1px solid var(--bd)",background:on?`${c.cl}08`:"var(--s)",fontSize:".68rem",fontWeight:on?700:500,color:on?c.cl:"var(--t2)",cursor:"pointer"}}>{c.l}</button>})}</div>
-<div style={{padding:"8px 20px",borderBottom:"1px solid #F0EBE5",display:"flex",gap:4,flexWrap:"wrap"}}>
-<span style={{fontSize:".64rem",color:"var(--tm)",alignSelf:"center"}}>Topics:</span>
-{["Berry sorting technology for Spanish market","Potato packing automation for Germany","Fruit Logistica 2026 preparation","Frozen food processing innovation","New employee recruitment campaign","Dealer spotlight: German partner success story"].map(q=>
-<button key={q} onClick={()=>sendContent(q)} style={{padding:"4px 9px",borderRadius:6,border:"1px solid var(--bd)",background:"var(--s)",fontSize:".68rem",fontWeight:500,color:"var(--t2)",cursor:"pointer"}}>{q}</button>)}
-</div>
-
-<div style={{padding:"16px 20px",maxHeight:650,overflowY:"auto"}}>
-{cgl&&<div style={{textAlign:"center",padding:"36px 0"}}><div className="dots"><span/><span/><span/></div><p style={{fontSize:".82rem",color:"var(--tm)",marginTop:8}}>Generating {selProf.length} profile{selProf.length!==1?"s":""} × {selChan.length} channel{selChan.length!==1?"s":""} in {clang}...</p></div>}
-
-{cg&&!cgl&&!cg.error&&<div>
-{cg.topic_summary&&<div style={{padding:"10px 14px",borderRadius:8,background:"var(--s)",border:"1px solid #F0EBE5",marginBottom:16,display:"flex",alignItems:"center",gap:8}}><Sparkles size={14} style={{color:"var(--b)"}}/><span style={{fontSize:".84rem",fontWeight:600}}>{cg.topic_summary}</span>{cg.target_audience&&<span style={{marginLeft:"auto",fontSize:".68rem",color:"var(--tm)"}}>Audience: {cg.target_audience}</span>}</div>}
-
-{selChan.includes("linkedin")&&<><h3 style={{fontFamily:F,fontWeight:700,fontSize:".92rem",marginBottom:10,display:"flex",alignItems:"center",gap:6}}><Linkedin size={15} style={{color:CL.li}}/> LinkedIn</h3>
-{selProf.includes("company")&&<PostCard label="Company Page" desc="@newtec official" icon={Building2} color={CL.li} text={cg.linkedin?.company?.primary}/>}
-{selProf.includes("company")&&cg.linkedin?.company?.localized&&<PostCard label={`Company \u2014 ${clang}`} desc="Localized version" icon={Globe} color={CL.pur} text={cg.linkedin.company.localized}/>}
-{selProf.includes("sales")&&<PostCard label="Head of Sales" desc="ROI & Customer Stories" icon={Target} color={CL.warm} text={cg.linkedin?.sales?.primary}/>}
-{selProf.includes("sales")&&cg.linkedin?.sales?.localized&&<PostCard label={`Sales \u2014 ${clang}`} desc="Localized" icon={Globe} color={CL.pur} text={cg.linkedin.sales.localized}/>}
-{selProf.includes("rnd")&&<PostCard label="Head of R&D" desc="Technical innovation" icon={Microscope} color={CL.grn} text={cg.linkedin?.rnd?.primary}/>}
-{selProf.includes("ceo")&&<PostCard label="CEO" desc="Industry leadership" icon={Crown} color={CL.br} text={cg.linkedin?.ceo?.primary}/>}
-{selProf.includes("marketing")&&<PostCard label="Marketing" desc="Brand & Community" icon={Sparkles} color={CL.pur} text={cg.linkedin?.marketing?.primary}/>}
-{selProf.includes("service")&&<PostCard label="Service Manager" desc="Customer Support" icon={Package} color={CL.cold} text={cg.linkedin?.service?.primary}/>}</>}
-
-{selChan.includes("instagram")&&<><h3 style={{fontFamily:F,fontWeight:700,fontSize:".92rem",marginBottom:10,marginTop:20,display:"flex",alignItems:"center",gap:6}}><Instagram size={15} style={{color:CL.ig}}/> Instagram</h3>
-{cg.instagram&&<div style={{padding:14,borderRadius:10,background:"#FFF",border:"1px solid #E8E0D8",marginBottom:10}}>
-<div style={{marginBottom:10}}><span style={{fontSize:".68rem",fontWeight:600,color:"var(--tm)",textTransform:"uppercase"}}>Caption</span><div style={{fontSize:".82rem",lineHeight:1.6,whiteSpace:"pre-wrap",marginTop:4}}>{stripCite(cg.instagram.caption)}</div></div>
-{cg.instagram.visual_direction&&<div style={{padding:10,borderRadius:8,background:"var(--s)",border:"1px solid #F0EBE5"}}><span style={{fontSize:".68rem",fontWeight:600,color:CL.ig,textTransform:"uppercase"}}>Visual Direction</span><p style={{fontSize:".76rem",color:"var(--t2)",marginTop:3,fontStyle:"italic"}}>{cg.instagram.visual_direction}</p></div>}
-<button onClick={()=>sSaveModal({profile:"Company Page",text:stripCite(cg.instagram.caption),topic:cg.topic_summary||"",hashtags:(cg.suggested_hashtags||[]).join(", "),visual:cg.instagram?.visual_direction||"",platform:"Instagram",language:clang})} style={{marginTop:8,padding:"6px 12px",borderRadius:7,border:"1px solid rgba(225,48,108,.2)",background:"rgba(225,48,108,.04)",fontSize:".68rem",fontWeight:600,color:CL.ig,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}><Calendar size={10}/> Save to Calendar</button>
-</div>}</>}
-
-{selChan.includes("youtube")&&<><h3 style={{fontFamily:F,fontWeight:700,fontSize:".92rem",marginBottom:10,marginTop:20,display:"flex",alignItems:"center",gap:6}}><Youtube size={15} style={{color:CL.yt}}/> YouTube Scripts</h3>
-{cg.youtube&&<div style={{padding:14,borderRadius:10,background:"#FFF",border:"1px solid #E8E0D8",marginBottom:10}}>
-<div style={{marginBottom:10}}><div style={{display:"flex",alignItems:"center",gap:5,marginBottom:6}}><Clock size={11} style={{color:CL.yt}}/><span style={{fontSize:".7rem",fontWeight:700,color:CL.yt}}>Short (30 sec)</span></div>
-<div style={{fontSize:".8rem",lineHeight:1.6,whiteSpace:"pre-wrap",padding:10,borderRadius:8,background:"var(--s)",border:"1px solid #F0EBE5"}}>{stripCite(cg.youtube.short_script)}</div></div>
-<div><div style={{display:"flex",alignItems:"center",gap:5,marginBottom:6}}><Clock size={11} style={{color:CL.yt}}/><span style={{fontSize:".7rem",fontWeight:700,color:CL.yt}}>Long format (2-3 min)</span></div>
-<div style={{fontSize:".8rem",lineHeight:1.6,whiteSpace:"pre-wrap",padding:10,borderRadius:8,background:"var(--s)",border:"1px solid #F0EBE5"}}>{stripCite(cg.youtube.long_outline)}</div></div>
-<div style={{display:"flex",gap:6,marginTop:8}}><button onClick={()=>sSaveModal({profile:"Company Page",text:stripCite(cg.youtube.short_script),topic:cg.topic_summary||"",hashtags:(cg.suggested_hashtags||[]).join(", "),visual:"",platform:"YouTube",language:clang})} style={{padding:"6px 12px",borderRadius:7,border:"1px solid rgba(255,0,0,.2)",background:"rgba(255,0,0,.04)",fontSize:".68rem",fontWeight:600,color:CL.yt,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}><Calendar size={10}/> Save Short</button><button onClick={()=>sSaveModal({profile:"Company Page",text:stripCite(cg.youtube.long_outline),topic:cg.topic_summary||"",hashtags:(cg.suggested_hashtags||[]).join(", "),visual:"",platform:"YouTube",language:clang})} style={{padding:"6px 12px",borderRadius:7,border:"1px solid rgba(255,0,0,.2)",background:"rgba(255,0,0,.04)",fontSize:".68rem",fontWeight:600,color:CL.yt,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}><Calendar size={10}/> Save Long</button></div>
-</div>}</>}
-
-{cg.suggested_hashtags&&<div style={{marginTop:16,display:"flex",flexWrap:"wrap",gap:4}}>{cg.suggested_hashtags.map((h,i)=><span key={i} style={{padding:"3px 8px",borderRadius:5,background:"var(--s)",border:"1px solid #F0EBE5",fontSize:".7rem",fontWeight:600,color:CL.li}}>#{h.replace(/^#+/,"")}</span>)}</div>}
-
-<div style={{marginTop:16,display:"flex",gap:6,flexWrap:"wrap"}}>
-{[...(selProf.includes("company")&&selChan.includes("linkedin")&&cg.linkedin?.company?.primary?[{label:"Company Page",key:"company",text:cg.linkedin.company.primary}]:[]),...(selProf.includes("sales")&&selChan.includes("linkedin")&&cg.linkedin?.sales?.primary?[{label:"Head of Sales",key:"sales",text:cg.linkedin.sales.primary}]:[]),...(selProf.includes("rnd")&&selChan.includes("linkedin")&&cg.linkedin?.rnd?.primary?[{label:"Head of R&D",key:"rnd",text:cg.linkedin.rnd.primary}]:[]),...(selProf.includes("ceo")&&selChan.includes("linkedin")&&cg.linkedin?.ceo?.primary?[{label:"CEO",key:"ceo",text:cg.linkedin.ceo.primary}]:[]),...(selProf.includes("marketing")&&selChan.includes("linkedin")&&cg.linkedin?.marketing?.primary?[{label:"Marketing",key:"marketing",text:cg.linkedin.marketing.primary}]:[]),...(selProf.includes("service")&&selChan.includes("linkedin")&&cg.linkedin?.service?.primary?[{label:"Service",key:"service",text:cg.linkedin.service.primary}]:[]),...(selChan.includes("instagram")&&cg.instagram?.caption?[{label:"Instagram",key:"ig",text:cg.instagram.caption,prof:"Company Page"}]:[]),...(selChan.includes("youtube")&&cg.youtube?.short_script?[{label:"YouTube Short",key:"yt",text:cg.youtube.short_script,prof:"Company Page"}]:[])].map(x=><button key={x.key} onClick={()=>sSaveModal({profile:x.prof||x.label,text:stripCite(x.text),topic:cg.topic_summary||"",hashtags:(cg.suggested_hashtags||[]).join(", "),visual:x.key==="ig"?cg.instagram?.visual_direction||"":"",platform:x.key==="ig"?"Instagram":x.key==="yt"?"YouTube":"LinkedIn",language:clang})} style={{padding:"6px 12px",borderRadius:7,border:"1px solid rgba(155,118,83,.2)",background:"rgba(155,118,83,.06)",fontSize:".68rem",fontWeight:600,color:CL.br,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}><Calendar size={10}/> Save {x.label}</button>)}
-</div>
-</div>}
-
-{cg?.error&&<div style={{padding:20,textAlign:"center",color:CL.hot}}><p>{cg.error}</p></div>}
-
-{!cg&&!cgl&&<div style={{textAlign:"center",padding:"40px 0",color:"var(--tm)"}}><Sparkles size={32} style={{opacity:.12,marginBottom:8}}/><p style={{fontSize:".86rem",fontWeight:500}}>Click a topic or type your own</p><p style={{fontSize:".74rem",marginTop:4}}>Newton creates tailored posts for Company, Sales, R&D, and CEO profiles</p></div>}
-</div>
-
-<div className="ci" style={{display:"flex",gap:6,padding:"12px 20px",borderTop:"1px solid #F0EBE5"}}>
-<input value={ct} onChange={e=>sCT(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendContent()} placeholder="Type a content topic..." disabled={cgl}/>
-<button onClick={()=>sendContent()} disabled={cgl||!ct.trim()}>{cgl?<Loader2 size={14} className="sp"/>:<Sparkles size={14}/>} Generate</button>
-</div></div>}
+{tab==="content"&&<div className="cs an d5" style={{padding:20,marginBottom:28}}><ContentLab2 /></div>}
 
 {/* ═══ VOICEFLOW TAB ═══ */}
 {tab==="voiceflow"&&<div className="cs an d5" style={{padding:24,marginBottom:28}}>
