@@ -319,20 +319,33 @@ async function handleSave(req, res) {
   const { content } = req.body;
   if (!content) return res.status(400).json({ error: 'No content to save' });
 
+  // Map language codes to full names (matching existing Airtable options)
+  const LANG_TO_NAME = {
+    'EN': 'English', 'EN-UK': 'English', 'EN-US': 'English',
+    'DE': 'Deutsch', 'ES': 'Español', 'IT': 'Italiano',
+    'PT': 'Português', 'PT-BR': 'Português BR', 'FR': 'Français',
+    'DA': 'Dansk', 'NL': 'Nederlands', 'PL': 'Polski',
+    'SV': 'Svenska', 'NO': 'Norsk', 'FI': 'Suomi',
+    'ZH': '中文', 'JA': '日本語', 'KO': '한국어',
+    'TR': 'Türkçe', 'AR': 'العربية', 'HE': 'עברית',
+    'TH': 'ไทย', 'VI': 'Tiếng Việt', 'HI': 'हिन्दी',
+    'RO': 'Română', 'HU': 'Magyar', 'CS': 'Čeština',
+    'EL': 'Ελληνικά', 'HR': 'Hrvatski', 'SR': 'Srpski', 'BG': 'Български',
+  };
+
+  const langCode = content.metadata?.language || 'EN';
+  const langName = LANG_TO_NAME[langCode] || 'English';
+
   // Map to EXISTING Airtable field names
-  const fields = {
+  const allFields = {
     'Topic': content.metadata?.topic || '',
     'Platform': content.metadata?.platform || '',
     'Post Text': content.post_text || content.article_body || content.raw_text || '',
     'Visual Direction': content.visual_direction || '',
-    'Language': content.metadata?.language || 'EN',
+    'Language': langName,
     'Status': 'Draft',
-    'Target Audience': content.metadata?.market || 'International',
     'Hashtags': content.hashtags || '',
-  };
-
-  // New fields (add these to Airtable if not present)
-  const newFields = {
+    // New fields (added by user to Airtable)
     'Pillar': content.metadata?.pillar || '',
     'Format': content.metadata?.format || '',
     'Market': content.metadata?.market || '',
@@ -341,10 +354,7 @@ async function handleSave(req, res) {
     'Slides JSON': content.slides ? JSON.stringify(content.slides) : '',
   };
 
-  // Merge — existing fields + new fields (new fields will only work if added to Airtable)
-  const allFields = { ...fields, ...newFields };
-
-  // Remove empty values
+  // Remove empty values to avoid Airtable errors
   Object.keys(allFields).forEach(key => {
     if (!allFields[key]) delete allFields[key];
   });
