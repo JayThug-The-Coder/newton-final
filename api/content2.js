@@ -7,6 +7,7 @@ const AIRTABLE_BASE = 'appDQHnrGIRM7hr59';
 // REPLACE with your actual Content Calendar table ID
 const AIRTABLE_CONTENT_TABLE = process.env.AIRTABLE_CONTENT_TABLE || 'tblgR7ekntYJuV2oi';
 const AIRTABLE_PRODUCT_TABLE = 'tblNZoL7IU23Syd3o';
+const FAL_AI_KEY = process.env.FAL_AI_KEY || 'a25bf582-d127-4682-a34d-70fd41b6db95:5fd361ead523059c11e2363104492783';
 
 // ============================================================
 // SYSTEM PROMPTS — The 5 Pillar "Brains"
@@ -308,6 +309,8 @@ export default async function handler(req, res) {
   try {
     switch (action) {
       case 'generate': return await handleGenerate(req, res);
+      case 'generate_image': return await handleGenerateImage(req, res);
+      case 'generate_video': return await handleGenerateVideo(req, res);
       case 'save': return await handleSave(req, res);
       case 'list': return await handleList(req, res);
       case 'update_status': return await handleUpdateStatus(req, res);
@@ -465,6 +468,189 @@ ${productKnowledge ? 'USE the PRODUCT SPECIFICATIONS above for accurate data. Th
   };
 
   return res.status(200).json(parsed);
+}
+
+// ============================================================
+// GENERATE IMAGE — via fal.ai (Flux Schnell / Flux Pro / Ideogram)
+// ============================================================
+
+async function handleGenerateImage(req, res) {
+  const { prompt, model, aspect_ratio } = req.body;
+  if (!prompt) return res.status(400).json({ error: 'prompt required' });
+
+  // Model selection
+  const MODELS = {
+    'flux-schnell': 'fal-ai/flux/schnell',           // Fast, cheap ($0.015)
+    'flux-pro': 'fal-ai/flux-pro/v1.1-ultra',        // Premium quality ($0.055)
+    'ideogram': 'fal-ai/ideogram/v3',                 // Best for text in images ($0.04)
+  };
+
+  const modelId = MODELS[model] || MODELS['flux-schnell'];
+  const ar = aspect_ratio || '16:9'; // Default landscape for social media
+
+  // Build request body based on model
+  let body = {};
+  if (model === 'ideogram') {
+    body = { prompt, aspect_ratio: ar, style: 'REALISTIC' };
+  } else if (model === 'flux-pro') {
+    body = { prompt, aspect_ratio: ar, safety_tolerance: '5' };
+  } else {
+    body = { prompt, image_size: { width: 1280, height: 720 }, num_images: 1 };
+    // Flux schnell uses image_size, not aspect_ratio
+    if (ar === '1:1') { body.image_size = { width: 1024, height: 1024 }; }
+    else if (ar === '9:16') { body.image_size = { width: 720, height: 1280 }; }
+    else if (ar === '4:5') { body.image_size = { width: 896, height: 1120 }; }
+  }
+
+  const response = await fetch(`https://fal.run/${modelId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Key ${FAL_AI_KEY}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`fal.ai error: ${response.status} - ${errText}`);
+  }
+
+  const data = await response.json();
+
+  // Extract image URL (different models return differently)
+  let imageUrl = '';
+  if (data.images && data.images.length > 0) {
+    imageUrl = data.images[0].url;
+  } else if (data.image) {
+    imageUrl = data.image.url || data.image;
+  }
+
+  return res.status(200).json({
+    success: true,
+    image_url: imageUrl,
+    model: model || 'flux-schnell',
+    prompt: prompt,
+  });
+}
+
+// ============================================================
+// GENERATE VIDEO — via fal.ai (Kling, MiniMax, LTX)
+// ============================================================
+
+async function handleGenerateVideo(req, res) {
+  const { prompt, model, duration, aspect_ratio, image_url } = req.body;
+  if (!prompt) return res.status(400).json({ error: 'prompt required' });
+
+  // Video models on fal.ai
+  const MODELS = {
+    'kling': 'fal-ai/kling-video/v2.1/standard/text-to-video',
+    'kling-image': 'fal-ai/kling-video/v2.1/standard/image-to-video',
+    'seedance': 'fal-ai/bytedance/seedance/v1.5/pro/text-to-video',
+    'seedance-image': 'fal-ai/bytedance/seedance/v1.5/pro/image-to-video',
+    'seedance-fast': 'fal-ai/bytedance/seedance/v1/pro/fast/text-to-video',
+    'minimax': 'fal-ai/minimax-video/video-01-live/text-to-video',
+    'ltx': 'fal-ai/ltx-video/v0.9.7',
+  };
+
+  // If image_url provided, use image-to-video
+  let modelId;
+  let body;
+
+  if (image_url) {
+    // Use seedance-image or kling-image based on selected model
+    modelId = (model && model.startsWith('seedance')) ? MODELS['seedance-image'] : MODELS['kling-image'];
+    body = {
+      prompt,
+      image_url,
+      duration: duration || '5',
+      aspect_ratio: aspect_ratio || '16:9',
+    };
+  } else {
+    modelId = MODELS[model] || MODELS['kling'];
+    body = {
+      prompt,
+      duration: duration || '5',
+      aspect_ratio: aspect_ratio || '16:9',
+    };
+    // Seedance 1.5 supports audio generation
+    if (model && model.startsWith('seedance') && model !== 'seedance-fast') {
+      body.generate_audio = true;
+    }
+  }
+
+  // fal.ai video models use queue-based processing
+  // Submit the job
+  const submitRes = await fetch(`https://queue.fal.run/${modelId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Key ${FAL_AI_KEY}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!submitRes.ok) {
+    const errText = await submitRes.text();
+    throw new Error(`fal.ai video submit error: ${submitRes.status} - ${errText}`);
+  }
+
+  const submitData = await submitRes.json();
+  const requestId = submitData.request_id;
+
+  if (!requestId) {
+    throw new Error('No request_id returned from fal.ai');
+  }
+
+  // Poll for result (max 120 seconds)
+  let videoUrl = '';
+  let status = 'IN_QUEUE';
+  const maxAttempts = 40; // 40 x 3s = 120s
+
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise(r => setTimeout(r, 3000)); // Wait 3 seconds
+
+    const statusRes = await fetch(`https://queue.fal.run/${modelId}/requests/${requestId}/status`, {
+      headers: { 'Authorization': `Key ${FAL_AI_KEY}` },
+    });
+
+    if (!statusRes.ok) continue;
+
+    const statusData = await statusRes.json();
+    status = statusData.status;
+
+    if (status === 'COMPLETED') {
+      // Fetch the result
+      const resultRes = await fetch(`https://queue.fal.run/${modelId}/requests/${requestId}`, {
+        headers: { 'Authorization': `Key ${FAL_AI_KEY}` },
+      });
+      const resultData = await resultRes.json();
+
+      if (resultData.video && resultData.video.url) {
+        videoUrl = resultData.video.url;
+      }
+      break;
+    } else if (status === 'FAILED') {
+      throw new Error('Video generation failed');
+    }
+  }
+
+  if (!videoUrl) {
+    return res.status(200).json({
+      success: false,
+      status: 'processing',
+      request_id: requestId,
+      message: 'Video is still generating. Check back in a few seconds.',
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    video_url: videoUrl,
+    model: model || 'kling',
+    prompt: prompt,
+    request_id: requestId,
+  });
 }
 
 // ============================================================
