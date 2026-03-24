@@ -142,6 +142,14 @@ export default function ContentLab2() {
   const [updateMsg, setUpdateMsg] = useState(null);
   const [scheduleId, setScheduleId] = useState(null);
   const [scheduleFields, setScheduleFields] = useState({ week: '', day: '', date: '' });
+  const [imageUrl, setImageUrl] = useState(null);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [imageModel, setImageModel] = useState('flux-schnell');
+  const [imageAR, setImageAR] = useState('16:9');
+  const [videoUrl, setVideoUrl] = useState(null);
+  const [videoLoading, setVideoLoading] = useState(false);
+  const [videoModel, setVideoModel] = useState('kling');
+  const [mediaError, setMediaError] = useState(null);
   const resultRef = useRef(null);
 
   // ============================================================
@@ -192,6 +200,64 @@ export default function ContentLab2() {
       setLoading(false);
     }
   }, [pillar, platform, format, market, language, topic]);
+
+  const handleGenerateImage = useCallback(async () => {
+    if (!result) return;
+    setImageLoading(true);
+    setMediaError(null);
+    setImageUrl(null);
+    try {
+      const visualPrompt = result.visual_direction
+        || result.thumbnail_text
+        || result.title
+        || 'Professional industrial machinery for fresh produce sorting and packaging, clean modern factory setting';
+      
+      const fullPrompt = `Professional B2B industrial photography style. ${visualPrompt}. Clean, modern, high-quality. No text overlays unless specifically needed. Newtec-style: Danish engineering, stainless steel machinery, fresh produce.`;
+      
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generate_image', prompt: fullPrompt, model: imageModel, aspect_ratio: imageAR }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      if (data.image_url) setImageUrl(data.image_url);
+      else throw new Error('No image URL returned');
+    } catch (err) {
+      setMediaError('Image: ' + err.message);
+    } finally {
+      setImageLoading(false);
+    }
+  }, [result, imageModel, imageAR]);
+
+  const handleGenerateVideo = useCallback(async () => {
+    if (!result) return;
+    setVideoLoading(true);
+    setMediaError(null);
+    setVideoUrl(null);
+    try {
+      const visualPrompt = result.visual_direction
+        || result.title
+        || 'Industrial sorting machinery processing fresh produce in a modern packhouse';
+      
+      const fullPrompt = `Cinematic B2B industrial footage. ${visualPrompt}. Smooth camera movement, professional lighting, clean factory environment. 5 seconds.`;
+      
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generate_video', prompt: fullPrompt, model: videoModel, duration: '5', aspect_ratio: imageAR }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      if (data.video_url) setVideoUrl(data.video_url);
+      else if (data.status === 'processing') setMediaError('Video is generating... try again in 30 seconds.');
+      else throw new Error('No video URL returned');
+    } catch (err) {
+      setMediaError('Video: ' + err.message);
+    } finally {
+      setVideoLoading(false);
+    }
+  }, [result, videoModel, imageAR]);
 
   const handleSave = useCallback(async () => {
     if (!result) return;
@@ -756,6 +822,106 @@ export default function ContentLab2() {
           <button style={S.actionBtn('secondary')} onClick={handleCopy}>📋 Copy Text</button>
           <button style={S.actionBtn('secondary')} onClick={handleDownload}>⬇️ Download JSON</button>
           <button style={S.actionBtn('secondary')} onClick={handleGenerate}>🔄 Regenerate</button>
+        </div>
+
+        {/* === MEDIA GENERATION === */}
+        <div style={{ padding: '16px 20px', borderTop: '2px solid #e2e8f0', background: '#fafbff' }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', marginBottom: '10px' }}>🎨 Generate Media</div>
+          
+          {/* Controls row */}
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px', alignItems: 'center' }}>
+            {/* Image model selector */}
+            <select value={imageModel} onChange={e => setImageModel(e.target.value)} style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '12px' }}>
+              <option value="flux-schnell">Flux Schnell (fast)</option>
+              <option value="flux-pro">Flux Pro (premium)</option>
+              <option value="ideogram">Ideogram V3 (text in image)</option>
+            </select>
+            
+            {/* Aspect ratio */}
+            <select value={imageAR} onChange={e => setImageAR(e.target.value)} style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '12px' }}>
+              <option value="16:9">16:9 Landscape</option>
+              <option value="1:1">1:1 Square</option>
+              <option value="9:16">9:16 Vertical</option>
+              <option value="4:5">4:5 Instagram</option>
+            </select>
+
+            {/* Generate Image button */}
+            <button
+              onClick={handleGenerateImage}
+              disabled={imageLoading}
+              style={{
+                padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                background: imageLoading ? '#94a3b8' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                color: '#fff', border: 'none', cursor: imageLoading ? 'wait' : 'pointer',
+              }}
+            >
+              {imageLoading ? '⏳ Generating...' : '🎨 Generate Image'}
+            </button>
+
+            {/* Video model selector */}
+            <select value={videoModel} onChange={e => setVideoModel(e.target.value)} style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '12px' }}>
+              <option value="kling">Kling v2.1</option>
+              <option value="seedance">Seedance 1.5 Pro (+audio)</option>
+              <option value="seedance-fast">Seedance Fast (cheaper)</option>
+              <option value="minimax">MiniMax</option>
+            </select>
+
+            {/* Generate Video button */}
+            <button
+              onClick={handleGenerateVideo}
+              disabled={videoLoading}
+              style={{
+                padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                background: videoLoading ? '#94a3b8' : 'linear-gradient(135deg, #059669, #10b981)',
+                color: '#fff', border: 'none', cursor: videoLoading ? 'wait' : 'pointer',
+              }}
+            >
+              {videoLoading ? '⏳ Generating (~60s)...' : '🎬 Generate Video'}
+            </button>
+          </div>
+
+          {/* Error */}
+          {mediaError && (
+            <div style={{ fontSize: '12px', color: '#ef4444', padding: '8px 12px', background: '#fef2f2', borderRadius: '6px', marginBottom: '10px' }}>
+              ⚠️ {mediaError}
+            </div>
+          )}
+
+          {/* Image preview */}
+          {imageUrl && (
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', marginBottom: '6px', textTransform: 'uppercase' }}>Generated Image ({imageModel})</div>
+              <div style={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                <img src={imageUrl} alt="Generated" style={{ width: '100%', display: 'block' }} />
+              </div>
+              <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                <a href={imageUrl} target="_blank" rel="noopener noreferrer" style={{ ...S.actionBtn('secondary'), textDecoration: 'none', textAlign: 'center', fontSize: '11px' }}>
+                  ⬇️ Download
+                </a>
+                <button style={{ ...S.actionBtn('secondary'), fontSize: '11px' }} onClick={handleGenerateImage}>
+                  🔄 Regenerate
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Video preview */}
+          {videoUrl && (
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', marginBottom: '6px', textTransform: 'uppercase' }}>Generated Video ({videoModel})</div>
+              <div style={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                <video src={videoUrl} controls autoPlay muted loop style={{ width: '100%', display: 'block' }} />
+              </div>
+              <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                <a href={videoUrl} target="_blank" rel="noopener noreferrer" style={{ ...S.actionBtn('secondary'), textDecoration: 'none', textAlign: 'center', fontSize: '11px' }}>
+                  ⬇️ Download
+                </a>
+                <button style={{ ...S.actionBtn('secondary'), fontSize: '11px' }} onClick={handleGenerateVideo}>
+                  🔄 Regenerate
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
