@@ -70,7 +70,7 @@ CRITICAL RULES:
     });
     if (!response.ok) return res.status(response.status).json({ error: await response.text() });
     const data = await response.json();
-    const text = data.content?.[0]?.text || "{}";
+    const textParts = (data.content || [])   .filter(b => b.type === "text")   .map(b => b.text)   .join(""); const text = textParts || "{}";
     let parsed;
     try { parsed = JSON.parse(text.replace(/```json|```/g, "").trim()); } catch { parsed = { answer: text, charts: [] }; }
     return res.status(200).json(parsed);
