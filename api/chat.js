@@ -66,13 +66,23 @@ CRITICAL RULES:
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": process.env.CLAUDE_API_KEY, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: "claude-sonnet-5-5", max_tokens: 4000, system: systemPrompt, messages: [{ role: "user", content: question }] }),
+      body: JSON.stringify({ model: "claude-sonnet-5-5", max_tokens: 8000, system: systemPrompt, messages: [{ role: "user", content: question }] }),
     });
     if (!response.ok) return res.status(response.status).json({ error: await response.text() });
     const data = await response.json();
-    const textParts = (data.content || [])   .filter(b => b.type === "text")   .map(b => b.text)   .join(""); const text = textParts || "{}";
+    const textParts = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+    const text = textParts || "{}";
     let parsed;
-    try { parsed = JSON.parse(text.replace(/```json|```/g, "").trim()); } catch { parsed = { answer: text, charts: [] }; }
+    try {
+      parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
+    } catch {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try { parsed = JSON.parse(jsonMatch[0]); } catch { parsed = { answer: text, charts: [] }; }
+      } else {
+        parsed = { answer: text, charts: [] };
+      }
+    }
     return res.status(200).json(parsed);
   } catch (err) { return res.status(500).json({ error: err.message }); }
 }
