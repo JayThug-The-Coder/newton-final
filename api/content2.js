@@ -1,13 +1,12 @@
 // api/content.js — Newton Content Lab 2.0 Backend
 // Deploy to Vercel as serverless function
 
-const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || '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';
-const AIRTABLE_PAT = process.env.AIRTABLE_PAT || 'patKeWxCtoDp5plgI.bb0dcb73de1951b1ffe39f7dc28dc9319fa68d76289c13e09aa46cb531919a2e';
+const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
+const AIRTABLE_PAT = process.env.AIRTABLE_PAT;
 const AIRTABLE_BASE = 'appDQHnrGIRM7hr59';
-// REPLACE with your actual Content Calendar table ID
 const AIRTABLE_CONTENT_TABLE = process.env.AIRTABLE_CONTENT_TABLE || 'tblgR7ekntYJuV2oi';
 const AIRTABLE_PRODUCT_TABLE = 'tblNZoL7IU23Syd3o';
-const FAL_AI_KEY = process.env.FAL_AI_KEY || 'a25bf582-d127-4682-a34d-70fd41b6db95:5fd361ead523059c11e2363104492783';
+const FAL_AI_KEY = process.env.FAL_AI_KEY;
 
 // ============================================================
 // SYSTEM PROMPTS — The 5 Pillar "Brains"
