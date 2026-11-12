@@ -448,7 +448,7 @@ ${productKnowledge ? 'USE the PRODUCT SPECIFICATIONS above for accurate data. Th
   }
 
   const data = await response.json();
-  const rawText = data.content[0].text;
+  const rawText = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('') || '';
 
   let parsed;
   try {
