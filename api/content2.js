@@ -436,7 +436,7 @@ ${productKnowledge ? 'USE the PRODUCT SPECIFICATIONS above for accurate data. Th
       'anthropic-version': '2023-06-01'
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-5-5',
       max_tokens: 4000,
       system: systemPrompt,
       messages: [{ role: 'user', content: userMessage }]
@@ -464,7 +464,7 @@ ${productKnowledge ? 'USE the PRODUCT SPECIFICATIONS above for accurate data. Th
     language: language || 'EN',
     topic: topic || 'auto-generated',
     generated_at: new Date().toISOString(),
-    model: 'claude-sonnet-4-20250514'
+    model: 'claude-sonnet-5-5'
   };
 
   return res.status(200).json(parsed);
