@@ -66,7 +66,7 @@ CRITICAL RULES:
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": process.env.CLAUDE_API_KEY, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 4000, system: systemPrompt, messages: [{ role: "user", content: question }] }),
+      body: JSON.stringify({ model: "claude-sonnet-5-5", max_tokens: 4000, system: systemPrompt, messages: [{ role: "user", content: question }] }),
     });
     if (!response.ok) return res.status(response.status).json({ error: await response.text() });
     const data = await response.json();
