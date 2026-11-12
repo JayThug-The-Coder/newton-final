@@ -54,7 +54,7 @@ RESPONSE FORMAT:
 
 CRITICAL RULES:
 - Always 3-6 charts with visual variety
-- Lead cards: include ALL available fields. NEVER abbreviate products, pain, fit, or expansion. Up to 12 leads.
+- Lead cards: include ALL available fields, but keep each field to one short sentence. Up to 5 leads.
 - For COMPARISONS: use "comparison" chart with 6-10 metrics (employees, revenue, score, handled, certs, age, growth, equipment, expansion, timing) PLUS lead cards for both companies with full data
 - Use "handled" for produce type analysis
 - Use "competitor" + "equip" for replacement opportunities
@@ -66,7 +66,7 @@ CRITICAL RULES:
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": process.env.CLAUDE_API_KEY, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: "claude-sonnet-5-5", max_tokens: 8000, system: systemPrompt, messages: [{ role: "user", content: question }] }),
+      body: JSON.stringify({ model: "claude-sonnet-5-5", max_tokens: 16000, system: systemPrompt, messages: [{ role: "user", content: question }] }),
     });
     if (!response.ok) return res.status(response.status).json({ error: await response.text() });
     const data = await response.json();
